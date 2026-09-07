@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --indigo-night: #1d1740;
+  --marigold: #f2a93b;
+  --coral-ember: #e85c41;
+  --ivory-cloth: #fbf3e7;
+  --leaf: #3f7d5c;
+  --charcoal: #241f33;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--ivory-cloth);
+  color: var(--charcoal);
+  font-family: "Nunito Sans", system-ui, sans-serif;
+}
+
+h1, h2, h3, .font-display {
+  font-family: "Fraunces", Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
+/* The one recurring motif: a diamond/lozenge trim inspired by Ankara wax-print
+   borders. Used sparingly — top of hero, and footer — never as generic
+   section dividers. */
+.cloth-trim {
+  height: 14px;
+  width: 100%;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--marigold) 0px,
+    var(--marigold) 7px,
+    var(--coral-ember) 7px,
+    var(--coral-ember) 14px
+  );
+}
+
+.cloth-trim--night {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--indigo-night) 0px,
+    var(--indigo-night) 7px,
+    var(--marigold) 7px,
+    var(--marigold) 14px
+  );
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--coral-ember);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,20 @@
+# Dependencies
+/node_modules
+
+# Next.js build output
+/.next/
+/out/
+
+# Environment variables — NEVER commit real API keys, even to a private repo.
+# .env.example is intentionally NOT ignored — it has no real values.
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# OS/editor cruft
+.DS_Store
+*.pem
+npm-debug.log*
