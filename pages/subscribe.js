@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter } from "next/router";
-import { usePaystackPayment } from "react-paystack";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+
+// See checkout.js for why this calls Paystack Inline v2 directly instead
+// of through react-paystack (unmaintained, stuck on the old v1 popup API).
+const PAYSTACK_SCRIPT_SRC = "https://js.paystack.co/v2/inline.js";
 
 const PLANS = [
   {
@@ -26,6 +30,7 @@ export default function Subscribe() {
   const [selected, setSelected] = useState("monthly");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
     async function checkSession() {
@@ -41,17 +46,6 @@ export default function Subscribe() {
 
   const plan = PLANS.find((p) => p.id === selected);
 
-  const config = {
-    reference: `storynest_sub_${Date.now()}`,
-    email: session?.user?.email || "",
-    amount: 0, // Paystack ignores `amount` when `plan` is set — the plan's own price is charged
-    plan: plan?.planCode,
-    publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-    currency: "NGN",
-  };
-
-  const initializePayment = usePaystackPayment(config);
-
   function handleSubscribe() {
     if (!plan?.planCode) {
       setError(
@@ -59,15 +53,28 @@ export default function Subscribe() {
       );
       return;
     }
+    if (!scriptReady || typeof window === "undefined" || !window.PaystackPop) {
+      setError("Payment is still loading — wait a second and try again.");
+      return;
+    }
     setError("");
     setProcessing(true);
-    initializePayment({
-      onSuccess: async (reference) => {
+
+    const reference = `storynest_sub_${Date.now()}`;
+    const popup = new window.PaystackPop();
+    popup.newTransaction({
+      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+      email: session.user.email,
+      amount: 0, // Paystack ignores `amount` when `plan` is set — the plan's own price is charged
+      currency: "NGN",
+      ref: reference,
+      plan: plan.planCode,
+      onSuccess: async () => {
         try {
           const res = await fetch("/api/verify-subscription", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reference: reference.reference, userId: session.user.id, plan: selected }),
+            body: JSON.stringify({ reference, userId: session.user.id, plan: selected }),
           });
           if (!res.ok) throw new Error("Couldn't confirm the subscription.");
           router.push("/account");
@@ -76,7 +83,7 @@ export default function Subscribe() {
           setError(err.message || "Something went wrong confirming your subscription.");
         }
       },
-      onClose: () => setProcessing(false),
+      onCancel: () => setProcessing(false),
     });
   }
 
@@ -87,6 +94,7 @@ export default function Subscribe() {
       <Head>
         <title>Subscribe — StoryNest</title>
       </Head>
+      <Script src={PAYSTACK_SCRIPT_SRC} strategy="afterInteractive" onReady={() => setScriptReady(true)} />
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <header className="mx-auto flex max-w-2xl items-center justify-between px-6 py-6">
           <Link href="/" className="font-display text-xl">StoryNest</Link>

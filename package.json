@@ -13,8 +13,7 @@
     "next": "14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "jspdf": "^2.5.1",
-    "react-paystack": "^5.0.0"
+    "jspdf": "^2.5.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.19",

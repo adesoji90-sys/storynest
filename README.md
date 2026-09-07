@@ -91,6 +91,10 @@ Both tiers now price against **book length**, not a single flat number. `lib/pri
 4. Test cards for test mode are listed in Paystack's docs (search "Paystack test cards") — use one of those in the checkout flow before going live.
 5. When ready for real payments, swap in the **live** keys and re-point the webhook URL to your production domain.
 
+**Payment integration:** `checkout.js` and `subscribe.js` load Paystack's **Inline JS v2** (`https://js.paystack.co/v2/inline.js`) directly via `next/script` and call `new PaystackPop().newTransaction({...})` — not the `react-paystack` npm package. That package hasn't been updated in ~2 years and only implements Paystack's older v1 popup API (`PaystackPop.setup({callback, onClose}).openIframe()`); at some point Paystack's own v1 script became incompatible with it, surfacing as a browser console error — `Uncaught Error: Attribute callback must be a valid function` — that looks like a config problem but isn't. If you ever see that exact error again, check whether Paystack has moved on to a v3 API before assuming your keys are wrong.
+
+**A related lesson baked into this repo now:** every earlier zip of this project had `package-lock.json` deliberately stripped out before packaging (to keep downloads smaller), which meant Vercel installed whatever the *newest* version matching each `^x.y.z` range happened to be at build time — not necessarily the exact version tested locally. That specific mismatch turned out not to be the cause of the Paystack bug above (the semver range only ever resolved to one version either way), but it's exactly the kind of thing that silently causes "works locally, breaks on Vercel" bugs, so `package-lock.json` is now committed and should stay committed — run `npm ci` instead of `npm install` in any environment where reproducing the exact tested dependency tree matters.
+
 ## 4. Anthropic (Claude API) setup
 
 1. Get an API key from [console.anthropic.com](https://console.anthropic.com).
@@ -213,6 +217,7 @@ Every paid order now gets a PDF built server-side and stored in a **private** Su
 - [ ] Story builder: switching templates changes the form fields; validation blocks submit when a field is empty or the combined word count is under 50; "Preview story" calls Claude and returns a formatted story
 - [ ] Preview: watermark shows, only the first ~2 paragraphs are visible, color theme applied correctly, "Buy this story" proceeds to checkout
 - [ ] Checkout, test mode: Paystack popup opens, a Paystack test card completes successfully, `/api/verify-payment` confirms and redirects to success
+- [ ] Before testing on a fresh environment, run `npm ci` (not `npm install`) so you get the exact locked dependency versions — this is what `package-lock.json` being committed is for
 - [ ] Checkout, failure case: a declined test card shows a clear error and does not advance to success
 - [ ] Webhook: trigger a test event from the Paystack dashboard ("Send test webhook") and confirm the `orders` row updates to `status = paid`
 - [ ] Success page: PDF downloads with the correct title, character name, and full story text across pages; WhatsApp/Facebook share links open with pre-filled text

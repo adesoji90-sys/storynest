@@ -1,11 +1,21 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter } from "next/router";
-import { usePaystackPayment } from "react-paystack";
 import { getCharacterById } from "@/data/characters";
 import { getPageTier, getPrice } from "@/lib/pricing";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+
+// Paystack Inline v2 — loaded directly rather than through react-paystack,
+// which hasn't been updated in ~2 years and still only implements the old
+// v1 popup API (PaystackPop.setup({callback, onClose}).openIframe()).
+// Paystack's own v1 script is apparently no longer fully compatible with
+// that old call shape (surfaces as "Attribute callback must be a valid
+// function" from inline.js's own validation). v2's API — new
+// PaystackPop().newTransaction({ onSuccess, onCancel, ... }) — is current
+// and documented at paystack.com/docs/developer-tools/inlinejs.
+const PAYSTACK_SCRIPT_SRC = "https://js.paystack.co/v2/inline.js";
 
 export default function Checkout() {
   const router = useRouter();
@@ -15,6 +25,7 @@ export default function Checkout() {
   const [processing, setProcessing] = useState(false);
   const [session, setSession] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("storynest_draft");
@@ -52,16 +63,6 @@ export default function Checkout() {
   // fit a flat subscription without a fair-use cap, which isn't built).
   const subscriptionCovers = tier === "basic" && isSubscribed;
 
-  const config = {
-    reference: `storynest_${Date.now()}`,
-    email,
-    amount: priceNaira * 100, // kobo
-    publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-    currency: "NGN",
-  };
-
-  const initializePayment = usePaystackPayment(config);
-
   async function finalizeOrder(reference) {
     const res = await fetch("/api/verify-payment", {
       method: "POST",
@@ -84,21 +85,33 @@ export default function Checkout() {
       setEmailError("Enter a valid email so we can send the PDF.");
       return;
     }
+    if (!scriptReady || typeof window === "undefined" || !window.PaystackPop) {
+      setEmailError("Payment is still loading — wait a second and try again.");
+      return;
+    }
     setEmailError("");
     setProcessing(true);
-    initializePayment({
-      onSuccess: async (reference) => {
+
+    const reference = `storynest_${Date.now()}`;
+    const popup = new window.PaystackPop();
+    popup.newTransaction({
+      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+      email,
+      amount: priceNaira * 100, // kobo
+      currency: "NGN",
+      ref: reference,
+      onSuccess: async () => {
         try {
-          await finalizeOrder(reference.reference);
+          await finalizeOrder(reference);
         } catch {
           setProcessing(false);
           alert(
             "We couldn't confirm the payment yet — check your email, or contact support with your reference: " +
-              reference.reference
+              reference
           );
         }
       },
-      onClose: () => setProcessing(false),
+      onCancel: () => setProcessing(false),
     });
   }
 
@@ -127,6 +140,7 @@ export default function Checkout() {
       <Head>
         <title>Checkout — StoryNest</title>
       </Head>
+      <Script src={PAYSTACK_SCRIPT_SRC} strategy="afterInteractive" onReady={() => setScriptReady(true)} />
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <header className="mx-auto flex max-w-2xl items-center justify-between px-6 py-6">
           <Link href="/" className="font-display text-xl">StoryNest</Link>
