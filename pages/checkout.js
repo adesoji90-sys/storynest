@@ -160,7 +160,7 @@ export default function Checkout() {
             <p className="mt-1 font-body text-sm text-charcoal/60">
               {isPremium
                 ? `Starring ${draft.childName} · Premium · ${pageTier.label} · ${draft.pages.length} illustrated pages`
-                : `Starring ${character?.name} · Basic · ${pageTier.label}`}
+                : `Starring ${character?.name} · Basic · ${pageTier.label} · ${draft.pages.length} illustrated pages`}
             </p>
             {isPremium && (
               <ul className="mt-4 space-y-1 font-body text-sm text-charcoal/70">

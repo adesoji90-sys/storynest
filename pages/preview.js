@@ -22,6 +22,12 @@ export default function Preview() {
 
   const theme = getThemeById(draft.themeId);
   const isPremium = draft.tier === "premium";
+  // Both tiers now produce a fully illustrated book (see README "Basic
+  // tier is now illustrated too") — Premium's only remaining difference
+  // is a custom photo character instead of one from the library, which is
+  // why the portrait branch below still differs but the page-content
+  // rendering no longer does.
+  const displayName = isPremium ? draft.childName : getCharacterById(draft.characterId)?.name;
 
   return (
     <>
@@ -52,14 +58,14 @@ export default function Preview() {
               {isPremium ? (
                 <img
                   src={`data:image/png;base64,${draft.characterImageBase64}`}
-                  alt={draft.childName}
+                  alt={displayName}
                   className="mx-auto h-24 w-24 rounded-full object-cover"
                   style={{ border: `3px solid ${theme.accent}` }}
                 />
               ) : draft.characterImageUrl ? (
                 <img
                   src={draft.characterImageUrl}
-                  alt={getCharacterById(draft.characterId)?.name}
+                  alt={displayName}
                   className="mx-auto h-24 w-24 rounded-full object-cover"
                   style={{ border: `3px solid ${theme.accent}` }}
                 />
@@ -68,38 +74,26 @@ export default function Preview() {
                   className="mx-auto flex h-24 w-24 items-center justify-center rounded-full font-display text-2xl"
                   style={{ background: theme.accent, color: theme.bg }}
                 >
-                  {getCharacterById(draft.characterId)?.name?.[0]}
+                  {displayName?.[0]}
                 </div>
               )}
 
               <h1 className="mt-4 text-center font-display text-3xl">{draft.title}</h1>
               <p className="mt-1 text-center font-body text-sm opacity-70">
-                {isPremium
-                  ? `Starring ${draft.childName} · ${draft.pages.length} illustrated pages`
-                  : `Starring ${getCharacterById(draft.characterId)?.name}`}
+                Starring {displayName} · {draft.pages.length} illustrated pages
               </p>
 
               <div className="mt-8">
-                {isPremium ? (
-                  <div>
-                    {draft.pages[0]?.image && (
-                      <img
-                        src={`data:image/png;base64,${draft.pages[0].image}`}
-                        alt="Page 1 illustration"
-                        className="mx-auto mb-4 w-full max-w-sm rounded-cloth object-cover"
-                      />
-                    )}
-                    <p className="font-body leading-relaxed">{draft.pages[0]?.text}</p>
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-line font-body leading-relaxed">
-                    {draft.story.split(/\n+/).filter(Boolean).slice(0, 2).join("\n\n")}
-                  </p>
+                {draft.pages[0]?.image && (
+                  <img
+                    src={`data:image/png;base64,${draft.pages[0].image}`}
+                    alt="Page 1 illustration"
+                    className="mx-auto mb-4 w-full max-w-sm rounded-cloth object-cover"
+                  />
                 )}
+                <p className="font-body leading-relaxed">{draft.pages[0]?.text}</p>
                 <p className="mt-6 text-center font-body text-sm italic opacity-60">
-                  {isPremium
-                    ? `— ${draft.pages.length - 1} more illustrated pages unlock after purchase —`
-                    : "— rest of the story unlocks after purchase —"}
+                  — {draft.pages.length - 1} more illustrated pages unlock after purchase —
                 </p>
               </div>
             </div>

@@ -10,7 +10,7 @@ const steps = [
 ];
 
 const pricing = [
-  { name: "Basic", price: "₦3,000 – ₦7,000", unit: "by book length (5/10/15 pages)", features: ["Choose from 30 characters", "Guided story template", "8 color themes", "Instant PDF download"] },
+  { name: "Basic", price: "₦3,000 – ₦7,000", unit: "by book length (5/10/15 pages)", features: ["Choose from 30 characters", "Fully illustrated storybook", "8 color themes", "Instant PDF download"] },
   { name: "Premium", price: "₦12,000 – ₦25,000", unit: "by book length (5/10/15 pages)", features: ["Upload your child's photo", "Semi-realistic illustrated character", "5–15 illustrated pages", "Optional printed copy"], featured: true },
   { name: "Subscription", price: "₦8,000", unit: "per month", features: ["Unlimited Basic-tier stories", "Story library that saves", "All templates unlocked", "Priority support"] },
 ];

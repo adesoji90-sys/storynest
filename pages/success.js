@@ -22,7 +22,7 @@ export default function Success() {
     // Same layout the emailed PDF uses (lib/generateStoryPdf.js) — this
     // button is a convenience copy, not the only place the PDF is built.
     const { buildStoryPdfBuffer } = await import("@/lib/generateStoryPdf");
-    const buffer = buildStoryPdfBuffer(draft);
+    const buffer = await buildStoryPdfBuffer(draft);
     const blob = new Blob([buffer], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

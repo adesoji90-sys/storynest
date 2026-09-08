@@ -11,7 +11,7 @@
 // goes out; see README "Email delivery setup" for the gap this leaves.
 
 import { createClient } from "@supabase/supabase-js";
-import { buildStoryPdfBuffer } from "@/lib/generateStoryPdf";
+import { buildStoryPdfBuffer, uint8ArrayToBase64 } from "@/lib/generateStoryPdf";
 import { sendStoryEmail } from "@/lib/email";
 
 const supabaseAdmin = createClient(
@@ -53,8 +53,8 @@ export default async function handler(req, res) {
       character_id: draft.characterId || null,
       template_id: draft.templateId,
       theme_id: draft.themeId,
-      story: tier === "premium" ? null : draft.story,
-      pages: tier === "premium" ? draft.pages.map((p) => ({ text: p.text })) : null,
+      story: null, // both tiers now produce structured pages, not flat text — see README
+      pages: draft.pages.map((p) => ({ text: p.text })),
       amount_kobo: verifyData.data.amount,
       status: "paid",
     });
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
     // button produces (see lib/generateStoryPdf.js).
     let pdfBuffer = null;
     try {
-      pdfBuffer = buildStoryPdfBuffer(draft);
+      pdfBuffer = await buildStoryPdfBuffer(draft);
     } catch (pdfErr) {
       console.error("PDF generation failed:", pdfErr);
       // Continue without a PDF rather than failing the whole request — the
@@ -101,8 +101,8 @@ export default async function handler(req, res) {
         custom_character_id: draft.customCharacterId || null,
         template_id: draft.templateId || null,
         theme_id: draft.themeId,
-        story_text: tier === "premium" ? null : draft.story,
-        pages: tier === "premium" ? draft.pages.map((p) => ({ text: p.text })) : null,
+        story_text: null, // both tiers now produce structured pages, not flat text
+        pages: draft.pages.map((p) => ({ text: p.text })),
         pdf_path: pdfPath,
       });
       if (storyError) console.error("Supabase story insert error:", storyError);
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
           to: email,
           subject: `Your StoryNest book: ${draft.title}`,
           html: `<p>Hi,</p><p>"${draft.title}" is ready — it's attached as a PDF.</p><p>Thank you for using StoryNest!</p>`,
-          attachmentBase64: pdfBuffer.toString("base64"),
+          attachmentBase64: uint8ArrayToBase64(pdfBuffer),
           attachmentFilename: `${draft.title.replace(/\s+/g, "_")}.pdf`,
         });
       } catch (emailErr) {

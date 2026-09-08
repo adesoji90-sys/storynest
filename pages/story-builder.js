@@ -23,6 +23,7 @@ export default function StoryBuilder() {
   const [values, setValues] = useState({});
   const [errors, setErrors] = useState({});
   const [generating, setGenerating] = useState(false);
+  const [progressLabel, setProgressLabel] = useState("");
   const [apiError, setApiError] = useState("");
   const [libraryImages, setLibraryImages] = useState({});
 
@@ -93,29 +94,91 @@ export default function StoryBuilder() {
     if (!validate()) return;
     setGenerating(true);
     try {
-      const res = await fetch("/api/generate-story", {
+      setProgressLabel("Writing your story…");
+      const storyRes = await fetch("/api/generate-story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          template_id: templateId,
           title,
           character: character?.name,
           pageTier,
           ...values,
         }),
       });
-      if (!res.ok) throw new Error("Story generation failed. Please try again.");
-      const data = await res.json();
+      if (!storyRes.ok) throw new Error("Story generation failed. Please try again.");
+      const story = await storyRes.json();
+
+      // A per-session id, purely to scope location-background caching to
+      // THIS book — the same role customCharacterId plays for Premium
+      // (see generate-location-background.js). Basic tier has no photo
+      // upload to generate one from, so we mint a fresh one here; a
+      // different story with the same character still gets its own
+      // settings, since "the market" in one Adaeze book has no reason to
+      // match "the market" in a different Adaeze book.
+      const storySessionId = crypto.randomUUID();
+
+      setProgressLabel("Setting up backgrounds for each location…");
+      const locationUrlById = {};
+      await Promise.all(
+        Object.entries(story.locations || {}).map(async ([locationId, description]) => {
+          const r = await fetch("/api/generate-location-background", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ customCharacterId: storySessionId, locationId, description }),
+          });
+          const data = r.ok ? await r.json() : null;
+          if (data?.imageUrl) locationUrlById[locationId] = data.imageUrl;
+        })
+      );
+
+      // The character's pose is SELECTED from the cached library set, never
+      // generated fresh — same principle as Premium's supporting character.
+      // Claude already assigned a pose per page in generate-story.js.
+      // "neutral" is always included even if no page uses it, since the
+      // cover page / PDF portrait needs a representative pose regardless.
+      const uniquePoseIds = [...new Set([...story.pages.map((p) => p.pose), "neutral"])];
+      const poseUrlEntries = await Promise.all(
+        uniquePoseIds.map(async (poseId) => {
+          const r = await fetch("/api/get-or-generate-character", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ characterId, poseId }),
+          });
+          const data = r.ok ? await r.json() : null;
+          return [poseId, data?.imageUrl || null];
+        })
+      );
+      const poseUrlByPoseId = Object.fromEntries(poseUrlEntries);
+
+      setProgressLabel(`Illustrating ${story.pages.length} pages… this can take a minute.`);
+      const scenes = story.pages.map((p) => {
+        const settingUrl = locationUrlById[p.location_id];
+        return {
+          prompt: p.illustration_prompt,
+          shot: p.shot,
+          characters: [{ label: character.name, url: poseUrlByPoseId[p.pose] }],
+          setting: settingUrl ? { label: `the setting (${p.location_id})`, url: settingUrl } : null,
+        };
+      });
+
+      const illustrationRes = await fetch("/api/generate-illustrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenes }),
+      });
+      if (!illustrationRes.ok) throw new Error("Illustration generation failed. Please try again.");
+      const { images, failedCount } = await illustrationRes.json();
 
       const draft = {
+        tier: "basic",
         templateId,
         characterId,
-        characterImageUrl: libraryImages[characterId] || null,
+        characterImageUrl: libraryImages[characterId] || poseUrlByPoseId.neutral || null,
         themeId,
         pageTier,
-        title: data.title || title,
-        story: data.story,
-        pages: data.pages,
+        title: story.title || title,
+        pages: story.pages.map((p, i) => ({ text: p.text, image: images[i] || null })),
+        illustrationFailedCount: failedCount,
         fields: values,
         createdAt: Date.now(),
       };
@@ -250,8 +313,13 @@ export default function StoryBuilder() {
               disabled={generating}
               className="mt-8 w-full rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
             >
-              {generating ? "Writing your story…" : "Preview story"}
+              {generating ? progressLabel || "Working…" : "Preview story"}
             </button>
+            {generating && (
+              <p className="mt-2 text-center font-body text-xs text-charcoal/50">
+                Building a fully illustrated book takes a bit longer than plain text — usually under a minute.
+              </p>
+            )}
           </div>
 
           {/* LIVE PREVIEW */}

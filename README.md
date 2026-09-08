@@ -18,7 +18,7 @@ storynest/
 │   ├── success.js          PDF download (client-side) + sharing
 │   ├── premium-builder.js  Photo upload → custom character → multi-character story
 │   └── api/
-│       ├── generate-story.js               Basic tier: Claude writes the flat story text
+│       ├── generate-story.js               Basic tier: Claude writes a structured, illustration-ready story
 │       ├── generate-story-premium.js       Premium tier: Claude writes structured pages
 │       ├── generate-character-image.js     Batch-generates a custom character's pose set at upload
 │       ├── get-or-generate-character.js    Cached library-character pose lookup/generation
@@ -47,6 +47,16 @@ storynest/
 The story flow is: **characters → story-builder → preview → checkout → success**. Draft data is passed between story-builder/preview/checkout via `sessionStorage` (clears when the tab closes). Login is a separate, optional flow — `/login → /account` or `/login → /subscribe` — that only matters for persistent library access and subscriptions; it doesn't sit in the main purchase path.
 
 ---
+
+## 0. Basic tier is now a fully illustrated book too
+
+This is a deliberate scope change from how the project started. Originally, Basic tier was text-only by design — the whole point was zero image-generation cost, since the brief's margin math assumed only a Claude API cost per Basic story. **That's no longer true.** Both tiers now produce a fully illustrated book, using the exact same pipeline: structured story generation (title + per-page pose/location/shot from Claude), cached location backgrounds, and per-page illustrations composited from selected — never freshly generated — character references.
+
+**Premium's only remaining differentiator is the custom photo character.** Basic tier picks one of the 30 library characters (illustrated using their cached pose set — see "Character art" below); Premium lets a parent upload their own child's photo to generate a custom character instead. Everything downstream — structured story generation, location caching, pose selection, illustration compositing, the PDF layout — is now identical code shared by both tiers (`generate-story.js` and `generate-story-premium.js` remain separate routes for clarity, but produce the same shape and drive the same `generate-illustrations.js`).
+
+**Why this is more affordable than it sounds for Basic tier specifically:** a library character's art is cached and shared across *every* Basic customer who picks that character, not generated per purchase. The first parent who picks "Kemi, happy, at a market" pays for that generation; every later parent who gets a similar scene reuses it for free. Premium's custom photo character has no equivalent — it's unique per family by definition, so every pose is a fresh generation cost every time. This is why Basic tier absorbing real illustration cost doesn't erase its cost advantage over Premium; it narrows it, but the caching model is fundamentally different between the two.
+
+**Pricing has NOT been re-derived for this change.** The `lib/pricing.js` cost comments (₦925–₦1,915 per Premium book) predate this pivot and don't yet account for Basic tier's own image-generation cost, even though it's shared/cached. Basic's ₦3,000/₦5,000/₦7,000 prices are almost certainly still fine — the caching model means steady-state marginal cost per Basic book should stay low once a character's common poses/locations are warmed up — but "almost certainly fine" isn't the same as "verified," and this should be re-checked against real usage data once the library has real traffic, the same way Premium's costs were worked through explicitly.
 
 ## 1. Local setup
 
@@ -184,6 +194,10 @@ Order confirmations are sent via [Resend](https://resend.com), with the actual P
 
 **Where it's wired in:** both `/api/verify-payment` (one-off purchases) and `/api/redeem-subscription-story` (subscription redemptions) build the PDF server-side via `lib/generateStoryPdf.js` — the same layout `success.js`'s "Download PDF" button produces, refactored into one shared function so the two can't drift apart — and attach it to the confirmation email.
 
+**Layout:** a cover page (character portrait — real cached art if available, a colored initial-circle fallback otherwise — title, "Starring X"), then one page per story page, each with its illustration, a thin accent-colored bar top and bottom, and a page-number footer, matching the site's own visual identity rather than reading as plain black-text-on-white. Both tiers share this exact layout now — see "Basic tier is now illustrated too" below. Title wrapping is measured (`doc.splitTextToSize`), not assumed at a fixed line count — an earlier version placed the "Starring X" subtitle at a hardcoded y-position that overlapped a title long enough to wrap to two lines.
+
+**A cross-environment bug fixed alongside the layout work:** this function returns a `Uint8Array`, not a Node `Buffer` — `Buffer` isn't a standard browser global and isn't polyfilled by this project's webpack config, so an earlier version that returned/expected a `Buffer` would have worked from the server (email attachments) but could have silently broken the client-side "Download PDF" button in a real browser. `uint8ArrayToBase64()` (also exported from this file) replaces `.toString('base64')` everywhere a `Buffer`-only method was previously assumed.
+
 **Known gap:** if `/api/verify-payment` is never called (the parent closes the tab right after paying, before the client-side call completes) and the order only gets confirmed later via `/api/paystack-webhook`, no email goes out — the webhook handler only has the Paystack event data, not the story draft content needed to build a PDF. This is a real gap, not just a hypothetical: it means a parent who closes their browser at exactly the wrong moment gets charged but never receives their book by email (their `orders` row still gets marked `paid` correctly, so nothing is lost from a bookkeeping standpoint — but the delivery step doesn't retry). Fixing this properly needs the draft to be persisted server-side *before* payment (e.g., saved to Supabase keyed by the Paystack reference) so the webhook has something to build a PDF from — that's a real architecture change, not a quick patch, and isn't done here.
 
 ## 6.9 Persistent story storage & "My Library"
@@ -213,8 +227,11 @@ Every paid order now gets a PDF built server-side and stored in a **private** Su
 - [ ] Email: with a real `RESEND_API_KEY` and verified domain, confirm the confirmation email actually arrives with the PDF attached and openable, for both a guest checkout and a subscription redemption
 - [ ] My Library download: confirm `/api/story-pdf-url` returns 403 when called with a valid session but someone else's `storyId` — this is the one check that must never regress
 - [ ] PDF parity: confirm the emailed PDF and the "Download PDF" button's PDF are visually identical (they now share `lib/generateStoryPdf.js`, but verify after any future edit to that file)
+- [ ] PDF visual check: open a real generated Basic-tier PDF and confirm the cover page's character portrait renders as an actual circle (not a broken image or a square) — the circular clip in `drawCircularImage()` is the one piece of `lib/generateStoryPdf.js` that was verified structurally (correct page count, valid PDF bytes) but not visually, since nothing in this environment can rasterize a PDF to check the rendering by eye
 - [ ] Character browser: filters (age/gender/ethnicity) and search all narrow results correctly; modal opens/closes; "Use this character" carries the character into the story builder
 - [ ] Story builder: switching templates changes the form fields; validation blocks submit when a field is empty or the combined word count is under 50; "Preview story" calls Claude and returns a formatted story
+- [ ] Basic tier is actually illustrated: generate a Basic-tier book and confirm every page has an image, not just the cover — this is a behavior change from how the project started, easy to assume is still text-only if you're used to the old version
+- [ ] Basic tier character consistency: across a full Basic book, confirm the library character's face/outfit stays the same page to page (same principle as Premium, now applying to Basic too)
 - [ ] Preview: watermark shows, only the first ~2 paragraphs are visible, color theme applied correctly, "Buy this story" proceeds to checkout
 - [ ] Checkout, test mode: Paystack popup opens, a Paystack test card completes successfully, `/api/verify-payment` confirms and redirects to success
 - [ ] Before testing on a fresh environment, run `npm ci` (not `npm install`) so you get the exact locked dependency versions — this is what `package-lock.json` being committed is for
