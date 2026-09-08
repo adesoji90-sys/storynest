@@ -9,7 +9,8 @@ import { POSES } from "@/lib/characterPoses";
 import { PAGE_TIERS, getPrice } from "@/lib/pricing";
 import GenerationProgressModal from "@/components/GenerationProgressModal";
 
-const GENERATION_STEPS = ["Writing your story", "Setting up backgrounds", "Illustrating your pages"];
+const WRITE_STEPS = ["Writing your story"];
+const ILLUSTRATE_STEPS = ["Setting up backgrounds", "Illustrating your pages"];
 const CHARACTER_STEPS = ["Creating every pose"];
 
 function fileToBase64(file) {
@@ -48,11 +49,13 @@ export default function PremiumBuilder() {
   const [pageTier, setPageTier] = useState("standard");
   const [errors, setErrors] = useState({});
 
-  // Step 3 — generating
-  const [generating, setGenerating] = useState(false);
-  const [progressLabel, setProgressLabel] = useState("");
-  const [progressStep, setProgressStep] = useState(0);
-  const [genError, setGenError] = useState("");
+  // Step 3 — write story, review/edit it, then illustrate
+  const [writingStory, setWritingStory] = useState(false);
+  const [writeError, setWriteError] = useState("");
+  const [generatedStory, setGeneratedStory] = useState(null); // { title, locations, pages }
+  const [illustrating, setIllustrating] = useState(false);
+  const [illustrateStep, setIllustrateStep] = useState(0);
+  const [illustrateError, setIllustrateError] = useState("");
 
   const template = getTemplateById(templateId);
   const theme = getThemeById(themeId);
@@ -136,18 +139,16 @@ export default function PremiumBuilder() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  async function handleGenerateStory() {
+  async function handleWriteStory() {
     if (!characterPoses) {
-      setGenError("Generate a character first.");
+      setWriteError("Generate a character first.");
       setStep(1);
       return;
     }
     if (!validateStoryFields()) return;
-    setGenerating(true);
-    setGenError("");
+    setWritingStory(true);
+    setWriteError("");
     try {
-      setProgressStep(0);
-      setProgressLabel("Writing your story…");
       const storyRes = await fetch("/api/generate-story-premium", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -161,9 +162,33 @@ export default function PremiumBuilder() {
       });
       if (!storyRes.ok) throw new Error("Story generation failed. Please try again.");
       const story = await storyRes.json();
+      setGeneratedStory(story);
+      setStep(3);
+    } catch (err) {
+      setWriteError(err.message || "Something went wrong generating your story.");
+    } finally {
+      setWritingStory(false);
+    }
+  }
 
-      setProgressStep(1);
-      setProgressLabel("Setting up backgrounds for each location…");
+  function updatePageText(index, newText) {
+    setGeneratedStory((prev) => ({
+      ...prev,
+      pages: prev.pages.map((p, i) => (i === index ? { ...p, text: newText } : p)),
+    }));
+  }
+
+  function updateStoryTitle(newTitle) {
+    setGeneratedStory((prev) => ({ ...prev, title: newTitle }));
+  }
+
+  async function handleIllustrate() {
+    setIllustrateError("");
+    setIllustrating(true);
+    try {
+      const story = generatedStory;
+
+      setIllustrateStep(0);
 
       // Resolve ONE background per distinct location the story visits —
       // never per page. Every page sharing a location_id reuses the exact
@@ -185,7 +210,9 @@ export default function PremiumBuilder() {
 
       // Resolve the supporting character's pose set (if any) — same
       // selection-only principle as the custom character: never generate a
-      // new pose here, only look up what's cached.
+      // new pose here, only look up what's cached. Note: editing a page's
+      // TEXT in the review step does not change its assigned pose/location/
+      // shot — those stay tied to Claude's original scene understanding.
       let supportingPoseUrlByPoseId = {};
       if (supportingCharacterId) {
         const uniquePoseIds = [...new Set(story.pages.map((p) => p.pose))];
@@ -203,8 +230,7 @@ export default function PremiumBuilder() {
         supportingPoseUrlByPoseId = Object.fromEntries(entries);
       }
 
-      setProgressStep(2);
-      setProgressLabel(`Illustrating ${story.pages.length} pages… this can take a minute.`);
+      setIllustrateStep(1);
 
       // Characters AND the setting are all selected — never generated —
       // using the ids Claude assigned to that page. Both characters share
@@ -258,9 +284,9 @@ export default function PremiumBuilder() {
       sessionStorage.setItem("storynest_draft", JSON.stringify(draft));
       router.push("/preview");
     } catch (err) {
-      setGenError(err.message || "Something went wrong.");
+      setIllustrateError(err.message || "Something went wrong illustrating your book.");
     } finally {
-      setGenerating(false);
+      setIllustrating(false);
     }
   }
 
@@ -270,7 +296,8 @@ export default function PremiumBuilder() {
         <title>Premium story builder — StoryNest</title>
       </Head>
       <GenerationProgressModal open={generatingCharacter} steps={CHARACTER_STEPS} currentStepIndex={0} />
-      <GenerationProgressModal open={generating} steps={GENERATION_STEPS} currentStepIndex={progressStep} />
+      <GenerationProgressModal open={writingStory} steps={WRITE_STEPS} currentStepIndex={0} />
+      <GenerationProgressModal open={illustrating} steps={ILLUSTRATE_STEPS} currentStepIndex={illustrateStep} />
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
           <Link href="/" className="font-display text-xl">StoryNest</Link>
@@ -515,20 +542,79 @@ export default function PremiumBuilder() {
                 ))}
               </div>
 
-              {genError && <p className="mt-4 font-body text-sm text-coral_ember">{genError}</p>}
+              {writeError && <p className="mt-4 font-body text-sm text-coral_ember">{writeError}</p>}
 
               <button
-                onClick={handleGenerateStory}
-                disabled={generating || resolvingSupporting}
+                onClick={handleWriteStory}
+                disabled={writingStory || resolvingSupporting}
                 className="mt-8 w-full rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
               >
-                {generating ? progressLabel || "Generating…" : "Generate story & illustrations"}
+                {writingStory ? "Writing…" : "Write my story"}
               </button>
-              {generating && (
-                <p className="mt-2 text-center font-body text-xs text-charcoal/50">
-                  This can take 30–90 seconds for a full illustrated story — don't close this tab.
-                </p>
-              )}
+              <p className="mt-2 text-center font-body text-xs text-charcoal/50">
+                You'll get a chance to read and edit the story before it's illustrated.
+              </p>
+            </div>
+          )}
+
+          {/* STEP 3: STORY REVIEW — read and edit before illustrating */}
+          {step === 3 && generatedStory && (
+            <div>
+              <button onClick={() => setStep(2)} className="font-body text-sm text-charcoal/60">← Back to details</button>
+              <h1 className="mt-2 font-display text-3xl">Read your story</h1>
+              <p className="mt-1 font-body text-sm text-charcoal/60">
+                Edit anything below before it's turned into an illustrated book. Illustrations are matched to each
+                page's original scene, so a full rewrite of a page's action may not perfectly match its picture.
+              </p>
+
+              <label className="mt-6 block font-body font-semibold">Title</label>
+              <input
+                value={generatedStory.title}
+                onChange={(e) => updateStoryTitle(e.target.value)}
+                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-display text-lg"
+              />
+
+              <div className="mt-6 space-y-5">
+                {generatedStory.pages.map((page, i) => (
+                  <div key={i} className="rounded-cloth bg-white p-4 shadow-sm">
+                    <p className="font-body text-xs font-bold uppercase tracking-wide text-charcoal/40">
+                      Page {i + 1} of {generatedStory.pages.length}
+                    </p>
+                    <textarea
+                      value={page.text}
+                      onChange={(e) => updatePageText(i, e.target.value)}
+                      rows={3}
+                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-ivory_cloth px-3 py-2 font-body"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {illustrateError && <p className="mt-4 font-body text-sm text-coral_ember">{illustrateError}</p>}
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button
+                  onClick={() => setStep(2)}
+                  disabled={illustrating}
+                  className="rounded-cloth border border-charcoal/20 px-5 py-3 font-body font-semibold disabled:opacity-50"
+                >
+                  ← Edit details
+                </button>
+                <button
+                  onClick={handleWriteStory}
+                  disabled={writingStory || illustrating}
+                  className="rounded-cloth border border-charcoal/20 px-5 py-3 font-body font-semibold disabled:opacity-50"
+                >
+                  {writingStory ? "Rewriting…" : "🔄 Rewrite story"}
+                </button>
+                <button
+                  onClick={handleIllustrate}
+                  disabled={illustrating}
+                  className="ml-auto rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
+                >
+                  {illustrating ? "Illustrating…" : "Illustrate my book →"}
+                </button>
+              </div>
             </div>
           )}
         </div>
