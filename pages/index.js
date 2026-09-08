@@ -168,7 +168,7 @@ export default function Home() {
             <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {sampleCharacters.map((c) => (
                 <div key={c.id} className="rounded-cloth bg-ivory_cloth p-4 text-center shadow-sm">
-                  <div className="mx-auto mb-3 aspect-square w-full overflow-hidden rounded-cloth bg-indigo_night/10 p-3">
+                  <div className="mx-auto mb-3 aspect-square w-full overflow-hidden rounded-cloth bg-indigo_night/10 p-7">
                     {libraryImages[c.id] ? (
                       <img src={libraryImages[c.id]} alt={c.name} className="h-full w-full object-contain" />
                     ) : (
