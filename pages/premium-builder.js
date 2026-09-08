@@ -7,6 +7,10 @@ import { templates, getTemplateById } from "@/data/templates";
 import { colorThemes, getThemeById } from "@/data/colorThemes";
 import { POSES } from "@/lib/characterPoses";
 import { PAGE_TIERS, getPrice } from "@/lib/pricing";
+import GenerationProgressModal from "@/components/GenerationProgressModal";
+
+const GENERATION_STEPS = ["Writing your story", "Setting up backgrounds", "Illustrating your pages"];
+const CHARACTER_STEPS = ["Creating every pose"];
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -47,6 +51,7 @@ export default function PremiumBuilder() {
   // Step 3 — generating
   const [generating, setGenerating] = useState(false);
   const [progressLabel, setProgressLabel] = useState("");
+  const [progressStep, setProgressStep] = useState(0);
   const [genError, setGenError] = useState("");
 
   const template = getTemplateById(templateId);
@@ -141,6 +146,7 @@ export default function PremiumBuilder() {
     setGenerating(true);
     setGenError("");
     try {
+      setProgressStep(0);
       setProgressLabel("Writing your story…");
       const storyRes = await fetch("/api/generate-story-premium", {
         method: "POST",
@@ -156,6 +162,7 @@ export default function PremiumBuilder() {
       if (!storyRes.ok) throw new Error("Story generation failed. Please try again.");
       const story = await storyRes.json();
 
+      setProgressStep(1);
       setProgressLabel("Setting up backgrounds for each location…");
 
       // Resolve ONE background per distinct location the story visits —
@@ -196,6 +203,7 @@ export default function PremiumBuilder() {
         supportingPoseUrlByPoseId = Object.fromEntries(entries);
       }
 
+      setProgressStep(2);
       setProgressLabel(`Illustrating ${story.pages.length} pages… this can take a minute.`);
 
       // Characters AND the setting are all selected — never generated —
@@ -223,7 +231,7 @@ export default function PremiumBuilder() {
       const illustrationRes = await fetch("/api/generate-illustrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenes }),
+        body: JSON.stringify({ sessionId: customCharacterId, scenes }),
       });
       if (!illustrationRes.ok) throw new Error("Illustration generation failed. Please try again.");
       const { images, failedCount } = await illustrationRes.json();
@@ -237,7 +245,11 @@ export default function PremiumBuilder() {
         pages: story.pages.map((p, i) => ({ text: p.text, image: images[i] || null })),
         childName,
         customCharacterId,
-        characterImageBase64: characterPoses.neutral.base64,
+        // A URL, not embedded base64 — matches Basic tier's
+        // characterImageUrl field, and keeps the draft small enough for
+        // sessionStorage (a real, previously-hit quota bug — see
+        // generate-illustrations.js).
+        characterImageUrl: characterPoses.neutral.url,
         supportingCharacterId,
         supportingCharacterUrl: supportingCharacterUrl || null,
         illustrationFailedCount: failedCount,
@@ -257,6 +269,8 @@ export default function PremiumBuilder() {
       <Head>
         <title>Premium story builder — StoryNest</title>
       </Head>
+      <GenerationProgressModal open={generatingCharacter} steps={CHARACTER_STEPS} currentStepIndex={0} />
+      <GenerationProgressModal open={generating} steps={GENERATION_STEPS} currentStepIndex={progressStep} />
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
           <Link href="/" className="font-display text-xl">StoryNest</Link>

@@ -229,3 +229,14 @@ create policy "Service role can update library characters"
 insert into storage.buckets (id, name, public)
 values ('story-pdfs', 'story-pdfs', false)
 on conflict (id) do nothing;
+
+-- Individual composited page illustrations, also kept PRIVATE — for the
+-- same reason as story-pdfs above, and because a Premium page can depict
+-- a real child. generate-illustrations.js uploads each generated page
+-- here and issues a 24-hour signed URL directly rather than a permanent
+-- public link, since these are only ever needed transiently between
+-- generating a book and completing checkout (or being folded into the
+-- final story-pdfs PDF).
+insert into storage.buckets (id, name, public)
+values ('story-pages', 'story-pages', false)
+on conflict (id) do nothing;

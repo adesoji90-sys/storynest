@@ -1,5 +1,8 @@
 // POST /api/generate-illustrations
-// Body: { scenes: [ { prompt, shot, characters: [{label, base64}|{label,url}], setting?: {label, base64}|{label,url} } ] }
+// Body: {
+//   sessionId,   // scopes storage paths to this one book — see below
+//   scenes: [ { prompt, shot, characters: [{label, base64}|{label,url}], setting?: {label, base64}|{label,url} } ]
+// }
 //
 // By the time a request reaches this route, every reference has already
 // been SELECTED, not generated: character poses came from their
@@ -11,6 +14,16 @@
 // version of a setting; only the specific action/framing of this page is
 // new.
 //
+// Every generated illustration is uploaded to Storage and returned as a
+// signed URL, NOT as base64 in the response — sessionStorage on the client
+// has a hard quota (typically 5-10MB per origin), and a handful of full
+// illustration images as base64 blows well past that. This was a real,
+// observed bug: a 5-page book's worth of embedded base64 images threw
+// "Setting the value of 'storynest_draft' exceeded the quota" the first
+// time this pipeline actually ran end-to-end against real image
+// generation. URLs are tiny strings; the images themselves belong in
+// Storage, same as every other generated image in this app.
+//
 // gpt-image-1.5's edit endpoint accepts multiple input images via repeated
 // `image[]` fields — check OpenAI's current docs before deploying, since
 // multi-image editing support has changed across API versions.
@@ -20,8 +33,30 @@
 // limit. This route batches requests concurrently to help, but a production
 // version should move to a background job + polling.
 
+import { createClient } from "@supabase/supabase-js";
 import { STYLE_GUIDE } from "@/lib/imageStyle";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// A signed URL, not a permanent public one — these can depict a real
+// child's likeness (Premium) or a specific generated scene tied to one
+// family's book, so the bucket itself is private (see supabase/schema.sql).
+//
+// 30 days, not indefinite: there's no technical ceiling on Supabase's
+// signed-URL expiry (people use these for years), but unlike
+// story-pdf-url.js (which checks the requesting user actually owns that
+// story before issuing a link), THIS url carries no ownership check at
+// all — anyone holding the link can open it until it expires. A longer
+// expiry directly widens that exposure window if a URL ever leaks
+// (browser history, a shared screenshot, etc.), which matters more here
+// than in a generic app since these can be a real child's likeness. 30
+// days comfortably covers a parent who generates a book and comes back
+// to buy it weeks later, without leaving the door open indefinitely.
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export const config = {
   maxDuration: 60,
@@ -105,12 +140,35 @@ async function runInBatches(items, worker, concurrency) {
   return results;
 }
 
+async function uploadAndSign(sessionId, index, base64) {
+  if (!base64) return null;
+  const path = `${sessionId}_page_${index}.png`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("story-pages")
+    .upload(path, Buffer.from(base64, "base64"), { contentType: "image/png", upsert: true });
+  if (uploadError) {
+    console.error("Story-page storage upload error:", uploadError);
+    return null;
+  }
+  const { data, error: signError } = await supabaseAdmin.storage
+    .from("story-pages")
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  if (signError || !data) {
+    console.error("Story-page signed URL error:", signError);
+    return null;
+  }
+  return data.signedUrl;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { scenes } = req.body || {};
+  const { sessionId, scenes } = req.body || {};
+  if (!sessionId) {
+    return res.status(400).json({ error: "Missing sessionId." });
+  }
   if (!Array.isArray(scenes) || scenes.length === 0) {
     return res.status(400).json({ error: "No scenes provided." });
   }
@@ -155,10 +213,14 @@ export default async function handler(req, res) {
       })
     );
 
-    const images = await runInBatches(
+    const base64Images = await runInBatches(
       scenesResolved,
       (scene) => generateOne(scene.characterRefs, scene.settingRef, scene.prompt, scene.shot),
       CONCURRENCY
+    );
+
+    const images = await Promise.all(
+      base64Images.map((b64, i) => uploadAndSign(sessionId, i, b64))
     );
 
     const failedCount = images.filter((img) => !img).length;

@@ -6,6 +6,9 @@ import { characters, getCharacterById } from "@/data/characters";
 import { templates, getTemplateById } from "@/data/templates";
 import { colorThemes, getThemeById } from "@/data/colorThemes";
 import { PAGE_TIERS, getPrice } from "@/lib/pricing";
+import GenerationProgressModal from "@/components/GenerationProgressModal";
+
+const GENERATION_STEPS = ["Writing your story", "Setting up backgrounds", "Illustrating your pages"];
 
 const MIN_WORDS = 50;
 
@@ -24,6 +27,7 @@ export default function StoryBuilder() {
   const [errors, setErrors] = useState({});
   const [generating, setGenerating] = useState(false);
   const [progressLabel, setProgressLabel] = useState("");
+  const [progressStep, setProgressStep] = useState(0);
   const [apiError, setApiError] = useState("");
   const [libraryImages, setLibraryImages] = useState({});
 
@@ -94,6 +98,7 @@ export default function StoryBuilder() {
     if (!validate()) return;
     setGenerating(true);
     try {
+      setProgressStep(0);
       setProgressLabel("Writing your story…");
       const storyRes = await fetch("/api/generate-story", {
         method: "POST",
@@ -117,6 +122,7 @@ export default function StoryBuilder() {
       // match "the market" in a different Adaeze book.
       const storySessionId = crypto.randomUUID();
 
+      setProgressStep(1);
       setProgressLabel("Setting up backgrounds for each location…");
       const locationUrlById = {};
       await Promise.all(
@@ -150,6 +156,7 @@ export default function StoryBuilder() {
       );
       const poseUrlByPoseId = Object.fromEntries(poseUrlEntries);
 
+      setProgressStep(2);
       setProgressLabel(`Illustrating ${story.pages.length} pages… this can take a minute.`);
       const scenes = story.pages.map((p) => {
         const settingUrl = locationUrlById[p.location_id];
@@ -164,7 +171,7 @@ export default function StoryBuilder() {
       const illustrationRes = await fetch("/api/generate-illustrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenes }),
+        body: JSON.stringify({ sessionId: storySessionId, scenes }),
       });
       if (!illustrationRes.ok) throw new Error("Illustration generation failed. Please try again.");
       const { images, failedCount } = await illustrationRes.json();
@@ -196,6 +203,7 @@ export default function StoryBuilder() {
       <Head>
         <title>Build your story — StoryNest</title>
       </Head>
+      <GenerationProgressModal open={generating} steps={GENERATION_STEPS} currentStepIndex={progressStep} />
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
           <Link href="/" className="font-display text-xl">StoryNest</Link>
@@ -313,7 +321,7 @@ export default function StoryBuilder() {
               disabled={generating}
               className="mt-8 w-full rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
             >
-              {generating ? progressLabel || "Working…" : "Preview story"}
+              {generating ? "Working…" : "Preview story"}
             </button>
             {generating && (
               <p className="mt-2 text-center font-body text-xs text-charcoal/50">

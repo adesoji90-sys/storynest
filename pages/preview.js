@@ -55,14 +55,7 @@ export default function Preview() {
             </div>
 
             <div className="relative">
-              {isPremium ? (
-                <img
-                  src={`data:image/png;base64,${draft.characterImageBase64}`}
-                  alt={displayName}
-                  className="mx-auto h-24 w-24 rounded-full object-cover"
-                  style={{ border: `3px solid ${theme.accent}` }}
-                />
-              ) : draft.characterImageUrl ? (
+              {draft.characterImageUrl ? (
                 <img
                   src={draft.characterImageUrl}
                   alt={displayName}
@@ -86,7 +79,7 @@ export default function Preview() {
               <div className="mt-8">
                 {draft.pages[0]?.image && (
                   <img
-                    src={`data:image/png;base64,${draft.pages[0].image}`}
+                    src={draft.pages[0].image}
                     alt="Page 1 illustration"
                     className="mx-auto mb-4 w-full max-w-sm rounded-cloth object-cover"
                   />
