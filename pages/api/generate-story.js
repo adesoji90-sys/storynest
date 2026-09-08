@@ -112,7 +112,24 @@ Write the full story now as JSON, following the system instructions exactly.
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: Math.min(4000, targetPages * 220),
+        // Claude Sonnet 5 defaults to adaptive thinking, which draws from
+        // this SAME max_tokens budget before any response text is
+        // written — silently eating into the room available for the
+        // actual JSON output. This task doesn't need chain-of-thought
+        // reasoning, so thinking is explicitly disabled to keep the full
+        // budget available for the story itself.
+        thinking: { type: "disabled" },
+        // Generous on purpose: an earlier, much tighter budget
+        // (targetPages * 220, capped at 4000) truncated real output
+        // mid-JSON on a 5-page book once locations + illustration
+        // prompts + JSON structure overhead were accounted for — and
+        // Sonnet 5's tokenizer produces roughly 30% more tokens for the
+        // same text than the model this was originally tuned against.
+        // Sonnet 5 supports up to 128k output tokens, so there's no cost
+        // pressure to keep this tight — output-token cost is what it is
+        // regardless of the ceiling; a higher max_tokens only matters if
+        // the model actually needs it.
+        max_tokens: Math.min(8000, 1800 + targetPages * 420),
         system: buildSystemPrompt(targetPages),
         messages: [{ role: "user", content: userPrompt }],
       }),
@@ -125,6 +142,16 @@ Write the full story now as JSON, following the system instructions exactly.
     }
 
     const data = await apiRes.json();
+    if (data.stop_reason === "max_tokens") {
+      // Anthropic tells us directly when a response was cut off by the
+      // token budget rather than the model choosing to stop — this is the
+      // unambiguous signature of the exact bug that originally caused
+      // truncated JSON here (see max_tokens comment above). If this ever
+      // fires again, the budget formula needs raising further, not the
+      // JSON-parsing logic.
+      console.error("Story generation was truncated by max_tokens — raise the budget in this file.");
+      return res.status(502).json({ error: "The story ran out of room before finishing — please try again." });
+    }
     const raw = (data.content || [])
       .filter((block) => block.type === "text")
       .map((block) => block.text)

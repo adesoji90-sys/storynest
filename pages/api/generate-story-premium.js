@@ -120,7 +120,12 @@ Write the full story now as JSON, following the system instructions exactly.
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: Math.min(4000, targetPages * 220),
+        // See generate-story.js for why thinking is disabled and why this
+        // budget is much larger than the page count alone would suggest —
+        // same root cause (adaptive thinking sharing the token budget,
+        // undersized formula) affected this route identically.
+        thinking: { type: "disabled" },
+        max_tokens: Math.min(8000, 1800 + targetPages * 420),
         system: buildSystemPrompt(targetPages),
         messages: [{ role: "user", content: userPrompt }],
       }),
@@ -133,6 +138,13 @@ Write the full story now as JSON, following the system instructions exactly.
     }
 
     const data = await apiRes.json();
+    if (data.stop_reason === "max_tokens") {
+      // See generate-story.js for why this check exists — the unambiguous
+      // signature of a token-budget truncation, distinct from a genuine
+      // malformed-JSON response.
+      console.error("Story generation was truncated by max_tokens — raise the budget in this file.");
+      return res.status(502).json({ error: "The story ran out of room before finishing — please try again." });
+    }
     const raw = (data.content || [])
       .filter((b) => b.type === "text")
       .map((b) => b.text)
