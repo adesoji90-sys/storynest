@@ -44,7 +44,33 @@ export default function Home() {
       <main className="bg-ivory_cloth text-charcoal">
         {/* HERO */}
         <section className="relative overflow-hidden bg-indigo_night text-ivory_cloth">
-          <div className="mx-auto max-w-5xl px-6 pt-6">
+          {/* Ambient background: large character portraits sliding behind
+              the hero copy at low opacity — sized at exactly 1/3 of the
+              viewport width each, so precisely 3 are visible on screen at
+              once regardless of screen size. Uses whatever's already
+              cached (see /api/library-characters), never triggers fresh
+              generation — a landing page gets anonymous, often bot/crawler
+              traffic, the wrong place to spend real image-API money
+              warming a cache. Uncached characters fall back to a giant
+              faint initial, which at this opacity reads as texture rather
+              than a placeholder. */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="flex h-full w-max animate-scroll-left opacity-[0.16]">
+              {[...characters, ...characters].map((c, i) => (
+                <div key={`${c.id}-${i}`} className="h-full w-[33.334vw] shrink-0">
+                  {libraryImages[c.id] ? (
+                    <img src={libraryImages[c.id]} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-ivory_cloth/5">
+                      <span className="font-display text-9xl text-ivory_cloth">{c.name[0]}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-5xl px-6 pt-6">
             <div className="flex items-center justify-between">
               <p className="font-body font-semibold text-marigold">StoryNest</p>
               <Link href="/account" className="font-body text-sm text-ivory_cloth/70 hover:text-ivory_cloth">
@@ -52,7 +78,7 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="mx-auto max-w-5xl px-6 pb-20 pt-10 md:pt-16">
+          <div className="relative z-10 mx-auto max-w-5xl px-6 pb-20 pt-10 md:pt-16">
             <h1 className="mt-4 max-w-2xl font-display text-4xl leading-[1.1] md:text-6xl">
               Every Nigerian child deserves a story where they're the hero.
             </h1>
@@ -76,35 +102,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Scrolling character banner — uses whatever's already cached
-              (see /api/library-characters), never triggers fresh
-              generation. A landing page gets anonymous, often bot/crawler
-              traffic; that's the wrong place to spend real image-API
-              money warming a cache. Uncached characters just show their
-              initial, same fallback used everywhere else in the app. */}
-          <div className="mt-2 overflow-hidden border-t border-ivory_cloth/10 py-6">
-            <div className="flex w-max animate-scroll-left gap-6">
-              {[...characters, ...characters].map((c, i) => (
-                <div key={`${c.id}-${i}`} className="flex flex-col items-center gap-2">
-                  <div className="relative">
-                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-ivory_cloth/10 ring-2 ring-ivory_cloth/20">
-                      {libraryImages[c.id] ? (
-                        <img src={libraryImages[c.id]} alt={c.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="font-display text-lg text-ivory_cloth/50">{c.name[0]}</span>
-                      )}
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 text-lg" aria-hidden="true">
-                      👋
-                    </span>
-                  </div>
-                  <p className="font-body text-xs text-ivory_cloth/60">{c.name}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="cloth-trim" />
+          <div className="relative z-10 cloth-trim" />
         </section>
 
         {/* HOW IT WORKS */}
