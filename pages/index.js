@@ -3,6 +3,28 @@ import Head from "next/head";
 import Link from "next/link";
 import { characters } from "@/data/characters";
 
+const HERO_SLOT_COUNT = 2;
+const HERO_ROTATE_MS = 7000;
+
+// Cycles through the character list two at a time, on a timer — replaces
+// an earlier version that continuously slid 3 characters across the
+// screen, which read as a UI ticker rather than calm background art. A
+// slow crossfade of 2 reads much more like ambient texture.
+function useRotatingCharacters(list, count, intervalMs) {
+  const [startIndex, setStartIndex] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setStartIndex((i) => (i + count) % list.length);
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [list.length, count, intervalMs]);
+  const visible = [];
+  for (let i = 0; i < count; i++) {
+    visible.push(list[(startIndex + i) % list.length]);
+  }
+  return visible;
+}
+
 const steps = [
   { n: 1, title: "Choose a character", body: "Pick from 30 Nigerian and diaspora characters your child will recognize themselves in." },
   { n: 2, title: "Fill in the story", body: "Answer a few guided prompts — the setting, the problem, the lesson. You write it, we format it." },
@@ -21,6 +43,7 @@ const sampleCharacters = characters.filter((c) =>
 
 export default function Home() {
   const [libraryImages, setLibraryImages] = useState({});
+  const heroCharacters = useRotatingCharacters(characters, HERO_SLOT_COUNT, HERO_ROTATE_MS);
 
   useEffect(() => {
     fetch("/api/library-characters")
@@ -44,22 +67,28 @@ export default function Home() {
       <main className="bg-ivory_cloth text-charcoal">
         {/* HERO */}
         <section className="relative overflow-hidden bg-indigo_night text-ivory_cloth">
-          {/* Ambient background: large character portraits sliding behind
-              the hero copy at low opacity — sized at exactly 1/3 of the
-              viewport width each, so precisely 3 are visible on screen at
-              once regardless of screen size. Uses whatever's already
-              cached (see /api/library-characters), never triggers fresh
-              generation — a landing page gets anonymous, often bot/crawler
-              traffic, the wrong place to spend real image-API money
-              warming a cache. Uncached characters fall back to a giant
-              faint initial, which at this opacity reads as texture rather
-              than a placeholder. */}
+          {/* Ambient background: 2 character portraits at a time, at low
+              opacity, crossfading to a new pair every few seconds — an
+              earlier version continuously slid 3 across the screen, which
+              read as a UI ticker rather than calm background art. Reuses
+              the same .animate-fade-in keyframe already used for the
+              generation-progress modal's rotating facts, keyed by
+              character id so React remounts (and re-plays the fade) each
+              time the pair changes. object-top (not the default "center")
+              is deliberate: a square source image inside a taller-than-
+              wide slot can crop vertically depending on exact screen
+              proportions, and if it does, this guarantees it sacrifices
+              the feet, never the head — a real reported bug otherwise.
+              Uses only already-cached images (see /api/library-characters,
+              a pure cache read); a marketing page with anonymous,
+              often bot/crawler traffic is the wrong place to spend real
+              image-API money warming a cache. */}
           <div className="absolute inset-0 overflow-hidden">
-            <div className="flex h-full w-max animate-scroll-left opacity-[0.16]">
-              {[...characters, ...characters].map((c, i) => (
-                <div key={`${c.id}-${i}`} className="h-full w-[33.334vw] shrink-0">
+            <div className="flex h-full">
+              {heroCharacters.map((c) => (
+                <div key={c.id} className="h-full w-1/2 animate-fade-in-slow opacity-[0.16]">
                   {libraryImages[c.id] ? (
-                    <img src={libraryImages[c.id]} alt="" className="h-full w-full object-cover" />
+                    <img src={libraryImages[c.id]} alt="" className="h-full w-full object-cover object-top" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-ivory_cloth/5">
                       <span className="font-display text-9xl text-ivory_cloth">{c.name[0]}</span>

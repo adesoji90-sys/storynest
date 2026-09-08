@@ -95,6 +95,14 @@ textarea:focus-visible {
   animation: fade-in 0.4s ease-out;
 }
 
+/* Slower variant for the hero's background character crossfade — the
+   default .animate-fade-in above is tuned for the generation-progress
+   modal's quick-rotating facts, which needs a snappier fade than a calm,
+   ambient 7-second hero rotation should have. */
+.animate-fade-in-slow {
+  animation: fade-in 1.4s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
