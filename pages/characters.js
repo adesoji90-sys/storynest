@@ -105,9 +105,9 @@ export default function Characters() {
               onClick={() => openCharacter(c)}
               className="rounded-cloth bg-white p-4 text-left shadow-sm transition hover:shadow-md"
             >
-              <div className="mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-cloth bg-indigo_night/10 font-display text-3xl text-indigo_night/40">
+              <div className="mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-cloth bg-indigo_night/10 p-3 font-display text-3xl text-indigo_night/40">
                 {libraryImages[c.id] ? (
-                  <img src={libraryImages[c.id]} alt={c.name} className="h-full w-full object-cover" />
+                  <img src={libraryImages[c.id]} alt={c.name} className="h-full w-full object-contain" />
                 ) : (
                   c.name[0]
                 )}
@@ -130,9 +130,9 @@ export default function Characters() {
               className="max-w-sm rounded-cloth bg-white p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="mx-auto mb-4 flex h-32 w-32 items-center justify-center overflow-hidden rounded-cloth bg-indigo_night/10 font-display text-4xl text-indigo_night/40">
+              <div className="mx-auto mb-4 flex h-32 w-32 items-center justify-center overflow-hidden rounded-cloth bg-indigo_night/10 p-2 font-display text-4xl text-indigo_night/40">
                 {libraryImages[selected.id] ? (
-                  <img src={libraryImages[selected.id]} alt={selected.name} className="h-full w-full object-cover" />
+                  <img src={libraryImages[selected.id]} alt={selected.name} className="h-full w-full object-contain" />
                 ) : (
                   selected.name[0]
                 )}

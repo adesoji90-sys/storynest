@@ -66,40 +66,13 @@ export default function Home() {
 
       <main className="bg-ivory_cloth text-charcoal">
         {/* HERO */}
-        <section className="relative overflow-hidden bg-indigo_night text-ivory_cloth">
-          {/* Ambient background: 2 character portraits at a time, at low
-              opacity, crossfading to a new pair every few seconds — an
-              earlier version continuously slid 3 across the screen, which
-              read as a UI ticker rather than calm background art. Reuses
-              the same .animate-fade-in keyframe already used for the
-              generation-progress modal's rotating facts, keyed by
-              character id so React remounts (and re-plays the fade) each
-              time the pair changes. object-top (not the default "center")
-              is deliberate: a square source image inside a taller-than-
-              wide slot can crop vertically depending on exact screen
-              proportions, and if it does, this guarantees it sacrifices
-              the feet, never the head — a real reported bug otherwise.
-              Uses only already-cached images (see /api/library-characters,
-              a pure cache read); a marketing page with anonymous,
-              often bot/crawler traffic is the wrong place to spend real
-              image-API money warming a cache. */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="flex h-full">
-              {heroCharacters.map((c) => (
-                <div key={c.id} className="h-full w-1/2 animate-fade-in-slow opacity-[0.16]">
-                  {libraryImages[c.id] ? (
-                    <img src={libraryImages[c.id]} alt="" className="h-full w-full object-cover object-top" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-ivory_cloth/5">
-                      <span className="font-display text-9xl text-ivory_cloth">{c.name[0]}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative z-10 mx-auto max-w-5xl px-6 pt-6">
+        <section className="bg-indigo_night text-ivory_cloth">
+          {/* Nav row sits OUTSIDE the character-art background on purpose —
+              it's in normal document flow here, on the section's plain
+              solid color, specifically so character portraits never
+              render behind "StoryNest" / "Log in". The background art
+              only starts in the wrapper below, behind the headline. */}
+          <div className="mx-auto max-w-5xl px-6 pt-6">
             <div className="flex items-center justify-between">
               <p className="font-body font-semibold text-marigold">StoryNest</p>
               <Link href="/account" className="font-body text-sm text-ivory_cloth/70 hover:text-ivory_cloth">
@@ -107,15 +80,47 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="relative z-10 mx-auto max-w-5xl px-6 pb-20 pt-10 md:pt-16">
-            <h1 className="mt-4 max-w-2xl font-display text-4xl leading-[1.1] md:text-6xl">
-              Every Nigerian child deserves a story where they're the hero.
-            </h1>
-            <p className="mt-6 max-w-md font-body text-lg text-ivory_cloth/85">
-              Pick a character who looks and sounds like your child, fill in a few details, and hold a
-              finished storybook in your hands before bedtime.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-4">
+
+          <div className="relative overflow-hidden">
+            {/* Ambient background: 2 character portraits at a time, at low
+                opacity, crossfading to a new pair every few seconds — an
+                earlier version continuously slid 3 across the screen, which
+                read as a UI ticker rather than calm background art. Reuses
+                the same .animate-fade-in keyframe already used for the
+                generation-progress modal's rotating facts, keyed by
+                character id so React remounts (and re-plays the fade) each
+                time the pair changes. object-contain (not object-cover) is
+                deliberate — it's mathematically impossible for it to crop
+                any part of the character, a real reported bug with the
+                cover-based version. Uses only already-cached images (see
+                /api/library-characters, a pure cache read); a marketing
+                page with anonymous, often bot/crawler traffic is the wrong
+                place to spend real image-API money warming a cache. */}
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="flex h-full">
+                {heroCharacters.map((c) => (
+                  <div key={c.id} className="h-full w-1/2 animate-fade-in-slow opacity-[0.16]">
+                    {libraryImages[c.id] ? (
+                      <img src={libraryImages[c.id]} alt="" className="h-full w-full object-contain object-top" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-ivory_cloth/5">
+                        <span className="font-display text-9xl text-ivory_cloth">{c.name[0]}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative z-10 mx-auto max-w-5xl px-6 pb-20 pt-10 md:pt-16">
+              <h1 className="mt-4 max-w-2xl font-display text-4xl leading-[1.1] md:text-6xl">
+                Every Nigerian child deserves a story where they're the hero.
+              </h1>
+              <p className="mt-6 max-w-md font-body text-lg text-ivory_cloth/85">
+                Pick a character who looks and sounds like your child, fill in a few details, and hold a
+                finished storybook in your hands before bedtime.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/characters"
                 className="rounded-cloth bg-coral_ember px-7 py-3 font-body font-bold text-white transition hover:bg-coral_ember/90"
@@ -129,6 +134,7 @@ export default function Home() {
                 See how it works
               </a>
             </div>
+          </div>
           </div>
 
           <div className="relative z-10 cloth-trim" />
@@ -162,9 +168,9 @@ export default function Home() {
             <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {sampleCharacters.map((c) => (
                 <div key={c.id} className="rounded-cloth bg-ivory_cloth p-4 text-center shadow-sm">
-                  <div className="mx-auto mb-3 aspect-square w-full overflow-hidden rounded-cloth bg-indigo_night/10">
+                  <div className="mx-auto mb-3 aspect-square w-full overflow-hidden rounded-cloth bg-indigo_night/10 p-3">
                     {libraryImages[c.id] ? (
-                      <img src={libraryImages[c.id]} alt={c.name} className="h-full w-full object-cover" />
+                      <img src={libraryImages[c.id]} alt={c.name} className="h-full w-full object-contain" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center font-display text-2xl text-indigo_night/40">
                         {c.name[0]}
