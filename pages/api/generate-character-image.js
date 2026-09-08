@@ -51,7 +51,18 @@ async function editImage(imageBase64, mimeType, prompt) {
   form.append("quality", IMAGE_QUALITY);
   form.append("image", toBlob(imageBase64, mimeType), "reference.png");
   form.append("prompt", prompt);
-  form.append("size", "1024x1024");
+  // Portrait, not square — a standing full-body figure with margin on
+  // every side is a genuinely awkward fit for a square frame, and no
+  // amount of prompt wording ("occupies no more than 70% of height", "must
+  // never touch an edge") reliably solved it across every character;
+  // real testing showed a character with good head margin still had feet
+  // cropped tight against the bottom in a square canvas. A taller canvas
+  // removes the underlying tension instead of continuing to negotiate
+  // around it with wording. This size only applies to isolated character
+  // POSES, not full illustrated scenes (see generate-illustrations.js,
+  // which stays square — a "shot" of a scene doesn't have this problem
+  // the way an isolated body portrait does).
+  form.append("size", "1024x1536");
 
   const apiRes = await fetchOpenAIWithRetry("https://api.openai.com/v1/images/edits", {
     method: "POST",

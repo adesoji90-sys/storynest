@@ -106,6 +106,29 @@ async function generateOne(characterRefs, settingRef, prompt, shot) {
   });
 
   const castLine = characterRefs.map((img) => `the character shown in ${img.label}`).join(" and ");
+  // A genuinely different instruction, not just more emphatic wording of
+  // the same one: the previous version asked the model to "illustrate a
+  // scene featuring this character," which invites redesigning them fresh
+  // each time, guided loosely by the reference. This version reframes it
+  // as a PLACEMENT task — the character is already fully designed in the
+  // reference, and the model's only job is to place that exact character
+  // into a new scene, not redraw them. This is the practical middle ground
+  // between two real alternatives that were weighed here: true pixel-level
+  // compositing (cut the character out of their reference image, paste
+  // them onto the setting) would guarantee identical pixels every time,
+  // but locks every scene into one of the 6 fixed static poses with no
+  // ability to show a character reaching for something, sitting, or
+  // interacting with another character in a way the pose library doesn't
+  // cover — a real, meaningful loss of narrative flexibility, not a small
+  // one. Reframing the prompt as placement-not-redesign keeps full
+  // flexibility while pushing the model toward preserving the reference
+  // more literally. This is still best-effort, not a guarantee — there is
+  // no fully reliable way to force pixel-identical output from this class
+  // of model without either the fixed-pose compositing tradeoff above or a
+  // fine-tuned/LoRA model, neither of which this app builds. If this
+  // reframing doesn't meaningfully reduce drift once tested against a real
+  // generation, the fixed-pose compositing approach is the next real
+  // option — and would need to be a deliberate choice, not a default.
   const shotInstruction =
     shot === "wide"
       ? "Use a wide establishing shot showing the full setting."
@@ -119,9 +142,8 @@ async function generateOne(characterRefs, settingRef, prompt, shot) {
 
   form.append(
     "prompt",
-    `Using the reference image(s) provided — ${castLine}${settingRef ? ` and the setting reference labeled "${settingRef.label}"` : ""} —
-    illustrate this scene: ${prompt}
-    Each character must recognizably match their own reference exactly (same face, hair, and outfit as shown), interacting naturally with each other where the scene calls for it.
+    `This is a character-placement task, not a redesign. ${castLine ? `${castLine.charAt(0).toUpperCase()}${castLine.slice(1)} ${characterRefs.length > 1 ? "are" : "is"} already fully designed exactly as shown in the reference image(s)` : "The reference image(s) already show exactly how each character must look"} — do not redesign, reinterpret, or alter their face, hairstyle, outfit, or outfit colors in any way. Your only job is to place that exact character, unchanged, into the scene described below, adding only the lighting, shadow, and perspective needed to integrate them naturally with the setting.
+    Scene: ${prompt}
     ${settingInstruction}
     ${shotInstruction}
     Match the same style across all characters and the background: ${STYLE_GUIDE}.`
