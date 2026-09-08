@@ -75,6 +75,35 @@ export default function Home() {
               </a>
             </div>
           </div>
+
+          {/* Scrolling character banner — uses whatever's already cached
+              (see /api/library-characters), never triggers fresh
+              generation. A landing page gets anonymous, often bot/crawler
+              traffic; that's the wrong place to spend real image-API
+              money warming a cache. Uncached characters just show their
+              initial, same fallback used everywhere else in the app. */}
+          <div className="mt-2 overflow-hidden border-t border-ivory_cloth/10 py-6">
+            <div className="flex w-max animate-scroll-left gap-6">
+              {[...characters, ...characters].map((c, i) => (
+                <div key={`${c.id}-${i}`} className="flex flex-col items-center gap-2">
+                  <div className="relative">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-ivory_cloth/10 ring-2 ring-ivory_cloth/20">
+                      {libraryImages[c.id] ? (
+                        <img src={libraryImages[c.id]} alt={c.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="font-display text-lg text-ivory_cloth/50">{c.name[0]}</span>
+                      )}
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 text-lg" aria-hidden="true">
+                      👋
+                    </span>
+                  </div>
+                  <p className="font-body text-xs text-ivory_cloth/60">{c.name}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="cloth-trim" />
         </section>
 

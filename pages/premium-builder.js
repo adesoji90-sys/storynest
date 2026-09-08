@@ -42,6 +42,8 @@ export default function PremiumBuilder() {
   const [templateId, setTemplateId] = useState(1);
   const [themeId, setThemeId] = useState(colorThemes[3].id);
   const [title, setTitle] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const [orientation, setOrientation] = useState("portrait");
   const [supportingCharacterId, setSupportingCharacterId] = useState("");
   const [supportingCharacterUrl, setSupportingCharacterUrl] = useState(null);
   const [resolvingSupporting, setResolvingSupporting] = useState(false);
@@ -267,6 +269,8 @@ export default function PremiumBuilder() {
         templateId,
         themeId,
         pageTier,
+        orientation,
+        authorName: authorName.trim() || null,
         title: story.title || title,
         pages: story.pages.map((p, i) => ({ text: p.text, image: images[i] || null })),
         childName,
@@ -276,6 +280,10 @@ export default function PremiumBuilder() {
         // sessionStorage (a real, previously-hit quota bug — see
         // generate-illustrations.js).
         characterImageUrl: characterPoses.neutral.url,
+        // Premium already generates every pose at upload — "happy" is
+        // already in hand, no extra resolution step needed the way Basic
+        // tier needs one (see story-builder.js).
+        backCoverImageUrl: characterPoses.happy?.url || characterPoses.neutral.url,
         supportingCharacterId,
         supportingCharacterUrl: supportingCharacterUrl || null,
         illustrationFailedCount: failedCount,
@@ -478,6 +486,21 @@ export default function PremiumBuilder() {
               />
               {errors.title && <p className="mt-1 font-body text-sm text-coral_ember">{errors.title}</p>}
 
+              <label className="mt-5 block font-body font-semibold">
+                Author line <span className="font-normal text-charcoal/50">(shown exactly as typed on the cover — optional)</span>
+              </label>
+              <input
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="e.g. Written by Mummy, or By the Adeniji Family"
+                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+              />
+              <p className="mt-1 font-body text-xs text-charcoal/50">
+                {authorName.trim()
+                  ? `Cover will show: "${authorName.trim()}"`
+                  : "Leave blank to skip the author line entirely."}
+              </p>
+
               {template.fields.map((f) => (
                 <div key={f.key} className="mt-5">
                   <label className="block font-body font-semibold">{f.label}</label>
@@ -538,6 +561,25 @@ export default function PremiumBuilder() {
                   >
                     <p className="font-bold">{t.label}</p>
                     <p className="text-sm text-charcoal/60">₦{getPrice("premium", t.id).toLocaleString("en-NG")}</p>
+                  </button>
+                ))}
+              </div>
+
+              <label className="mt-6 block font-body font-semibold">Page orientation</label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {[
+                  { id: "portrait", label: "Portrait", hint: "Tall — classic book shape" },
+                  { id: "landscape", label: "Landscape", hint: "Wide — great for screens" },
+                ].map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setOrientation(o.id)}
+                    className={`rounded-cloth border-2 p-3 text-center font-body ${
+                      orientation === o.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                    }`}
+                  >
+                    <p className="font-bold">{o.label}</p>
+                    <p className="text-xs text-charcoal/50">{o.hint}</p>
                   </button>
                 ))}
               </div>

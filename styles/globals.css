@@ -60,6 +60,26 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+@keyframes scroll-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Exactly -50% because the marquee renders the character list twice
+       back-to-back — scrolling by half its total width is what makes the
+       loop seamless instead of snapping visibly at the end. */
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll-left {
+  animation: scroll-left 36s linear infinite;
+}
+
+.animate-scroll-left:hover {
+  animation-play-state: paused;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

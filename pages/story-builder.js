@@ -29,6 +29,8 @@ export default function StoryBuilder() {
   const [themeId, setThemeId] = useState(colorThemes[3].id);
   const [pageTier, setPageTier] = useState("standard");
   const [title, setTitle] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const [orientation, setOrientation] = useState("portrait");
   const [values, setValues] = useState({});
   const [errors, setErrors] = useState({});
   const [libraryImages, setLibraryImages] = useState({});
@@ -159,7 +161,10 @@ export default function StoryBuilder() {
       // original scene understanding. Most edits (wording, a name, a
       // detail) don't invalidate that; a total rewrite of a page's action
       // could leave the illustration slightly mismatched to the new text.
-      const uniquePoseIds = [...new Set([...story.pages.map((p) => p.pose), "neutral"])];
+      // "neutral" is always included for the cover (calm portrait), and
+      // "happy" for the back cover (waving/celebrating) — even if no story
+      // page itself uses either pose.
+      const uniquePoseIds = [...new Set([...story.pages.map((p) => p.pose), "neutral", "happy"])];
       const poseUrlEntries = await Promise.all(
         uniquePoseIds.map(async (poseId) => {
           const r = await fetch("/api/get-or-generate-character", {
@@ -197,8 +202,11 @@ export default function StoryBuilder() {
         templateId,
         characterId,
         characterImageUrl: libraryImages[characterId] || poseUrlByPoseId.neutral || null,
+        backCoverImageUrl: poseUrlByPoseId.happy || poseUrlByPoseId.neutral || null,
         themeId,
         pageTier,
+        orientation,
+        authorName: authorName.trim() || null,
         title: story.title || title,
         pages: story.pages.map((p, i) => ({ text: p.text, image: images[i] || null })),
         illustrationFailedCount: failedCount,
@@ -267,6 +275,21 @@ export default function StoryBuilder() {
               />
               {errors.title && <p className="mt-1 font-body text-sm text-coral_ember">{errors.title}</p>}
 
+              <label className="mt-5 block font-body font-semibold">
+                Author line <span className="font-normal text-charcoal/50">(shown exactly as typed on the cover — optional)</span>
+              </label>
+              <input
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="e.g. Written by Mummy, or By the Adeniji Family"
+                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+              />
+              <p className="mt-1 font-body text-xs text-charcoal/50">
+                {authorName.trim()
+                  ? `Cover will show: "${authorName.trim()}"`
+                  : "Leave blank to skip the author line entirely."}
+              </p>
+
               {template.fields.map((f) => (
                 <div key={f.key} className="mt-5">
                   <label className="block font-body font-semibold">{f.label}</label>
@@ -311,6 +334,25 @@ export default function StoryBuilder() {
                   >
                     <p className="font-bold">{t.label}</p>
                     <p className="text-sm text-charcoal/60">₦{getPrice("basic", t.id).toLocaleString("en-NG")}</p>
+                  </button>
+                ))}
+              </div>
+
+              <label className="mt-6 block font-body font-semibold">Page orientation</label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {[
+                  { id: "portrait", label: "Portrait", hint: "Tall — classic book shape" },
+                  { id: "landscape", label: "Landscape", hint: "Wide — great for screens" },
+                ].map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setOrientation(o.id)}
+                    className={`rounded-cloth border-2 p-3 text-center font-body ${
+                      orientation === o.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                    }`}
+                  >
+                    <p className="font-bold">{o.label}</p>
+                    <p className="text-xs text-charcoal/50">{o.hint}</p>
                   </button>
                 ))}
               </div>
