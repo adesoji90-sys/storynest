@@ -202,6 +202,26 @@ Order confirmations are sent via [Resend](https://resend.com), with the actual P
 
 **Known gap:** if `/api/verify-payment` is never called (the parent closes the tab right after paying, before the client-side call completes) and the order only gets confirmed later via `/api/paystack-webhook`, no email goes out — the webhook handler only has the Paystack event data, not the story draft content needed to build a PDF. This is a real gap, not just a hypothetical: it means a parent who closes their browser at exactly the wrong moment gets charged but never receives their book by email (their `orders` row still gets marked `paid` correctly, so nothing is lost from a bookkeeping standpoint — but the delivery step doesn't retry). Fixing this properly needs the draft to be persisted server-side *before* payment (e.g., saved to Supabase keyed by the Paystack reference) so the webhook has something to build a PDF from — that's a real architecture change, not a quick patch, and isn't done here.
 
+## 6.62 Force-regenerating already-cached characters after a prompt fix
+
+Every prompt improvement in this project (the framing/margin fix in `lib/characterPoses.js`, the style-guide changes, etc.) only affects images generated *after* the fix — that's the entire point of the pose-caching system (generate once, reuse forever), but it also means a character generated before a fix stays wrong forever unless something explicitly tells it to redo itself. This surfaced as a real, confusing back-and-forth: CSS padding/`object-fit` changes were made in response to what looked like a cropping bug, none of which could possibly have fixed it, because the crop was baked into the actual image file, generated under an older, since-fixed prompt. Confirmed by opening the raw image file directly (bypassing all page CSS) and seeing the crop was already there.
+
+**The fix, and a real security gap closed while building it:** `/api/get-or-generate-character.js` already supported a `force: true` flag to bypass the cache and regenerate — but with **no protection at all**. Anyone who found the URL could have called it repeatedly with `force: true` and run up real OpenAI costs on demand. It now requires an `ADMIN_SECRET` header for any forced regeneration; normal (unforced) lookups — the vast majority of calls, from the app itself — still need no auth, since those only ever read cache or generate something that never existed.
+
+**New: `/api/admin/regenerate-characters`** — bulk-regenerates a specific, named list of `(character, pose)` pairs, reusing the exact same generation logic as the single-pose route (extracted into `lib/generateLibraryCharacterPose.js` so the two can't drift apart). Deliberately requires you to name which characters to redo rather than offering a "regenerate everything" button — every regeneration is a real, billed call, and this should only ever be run against characters you've actually seen a problem with. Caps at 40 character×pose combinations per request and rejects an oversized request before making any OpenAI calls, to avoid an accidental massive bill from one malformed request.
+
+**To use it:**
+1. Add `ADMIN_SECRET` to your Vercel environment variables (any long random string you make up) and redeploy.
+2. Run:
+   ```bash
+   curl -X POST https://your-domain.vercel.app/api/admin/regenerate-characters \
+     -H "Content-Type: application/json" \
+     -H "x-admin-secret: YOUR_ADMIN_SECRET" \
+     -d '{"characterIds": ["adaeze", "chidi", "tunde", "folake", "ikenna"]}'
+   ```
+   Add `"poseIds": ["neutral", "happy"]` to the body if you want more than just the default `neutral` pose redone for each character.
+3. The response lists `succeeded`/`failedCount` and the full per-character result — check it before assuming everything worked.
+
 ## 6.63 A real, observed failure: OpenAI rate limits, and why the fix isn't just retry logic
 
 Confirmed via live Vercel logs (not a guess): illustration generation failed consistently with `Illustration API error: {"error": {"message": "Rate limit reached for gpt-image-1.5..."}}`. Checking the account's actual limit (Settings → Limits on platform.openai.com) confirmed the specific number: **5 images per minute**, shared across every gpt-image model. This is a hard external ceiling, not a bug in this app's code — and the math matters:
@@ -336,6 +356,8 @@ Every paid order now gets a PDF built server-side and stored in a **private** Su
 - [ ] Basic tier is actually illustrated: generate a Basic-tier book and confirm every page has an image, not just the cover — this is a behavior change from how the project started, easy to assume is still text-only if you're used to the old version
 - [ ] Basic tier character consistency: across a full Basic book, confirm the library character's face/outfit stays the same page to page (same principle as Premium, now applying to Basic too)
 - [ ] Character portraits never crop: check every screen that shows a generated character — landing page (both grids), `/characters` (grid and modal), story builder's live preview, premium builder's character preview/pose strip/supporting character, and the `/preview` page's avatar — confirm the full character is visible with no part cut off on each; if any new screen is added later that shows a character portrait, it must use `object-contain`, not `object-cover`, per the standing rule above
+- [ ] Admin regeneration: confirm `force:true` and `/api/admin/regenerate-characters` both reject with 403 when `ADMIN_SECRET` is unset or wrong, and confirm normal (unforced) character lookups still work with no auth needed
+- [ ] After running a real regeneration, open the raw image file directly (not through the page) and confirm the character's full body is visible with no cropping — this is the one check that actually validates the prompt fix, since CSS changes can't fix a crop baked into the source pixels
 - [ ] Landing page banner: confirm exactly 2 character portraits crossfade in the hero background every ~7 seconds, that the transition feels gentle rather than abrupt, and that the full character (head to feet) is always visible with no cropping at any browser window width — `object-contain` should guarantee this mathematically, so if cropping is ever seen again, check that this class wasn't accidentally reverted to `object-cover`
 - [ ] sessionStorage size: generate a full "15 pages" book on either tier and confirm no quota error — this previously failed reliably at just 5 pages once illustrations were real, so specifically re-test after any future change that adds more data to the draft object
 - [ ] Rate limits: generate a full illustrated book and confirm every page actually gets an image (check `illustrationFailedCount` is 0) — if this account's OpenAI rate limit tier is still low, retries help but won't guarantee success on every attempt; check platform.openai.com → Settings → Limits if failures persist
