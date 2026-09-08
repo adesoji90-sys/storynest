@@ -99,9 +99,9 @@ export default function StoryBuilder() {
 
   async function handleWriteStory() {
     setWriteError("");
-    if (!validate()) return;
-    setWriting(true);
     try {
+      if (!validate()) return;
+      setWriting(true);
       const storyRes = await fetch("/api/generate-story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

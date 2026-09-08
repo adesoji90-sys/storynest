@@ -140,15 +140,15 @@ export default function PremiumBuilder() {
   }
 
   async function handleWriteStory() {
-    if (!characterPoses) {
-      setWriteError("Generate a character first.");
-      setStep(1);
-      return;
-    }
-    if (!validateStoryFields()) return;
-    setWritingStory(true);
     setWriteError("");
     try {
+      if (!characterPoses) {
+        setWriteError("Generate a character first.");
+        setStep(1);
+        return;
+      }
+      if (!validateStoryFields()) return;
+      setWritingStory(true);
       const storyRes = await fetch("/api/generate-story-premium", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

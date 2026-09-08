@@ -1,5 +1,15 @@
 -- StoryNest — Supabase schema
 -- Run this in Supabase Dashboard → SQL Editor → New query, then "Run".
+--
+-- Genuinely safe to re-run in full, start to finish, any time this file
+-- changes: every `create table`, `alter table ... add column`, and
+-- `insert into storage.buckets` is written to skip anything that already
+-- exists. Every `create policy` is preceded by a matching
+-- `drop policy if exists` for the same reason — Postgres has no native
+-- "create policy if not exists," and without the matching drop, re-running
+-- this file throws "policy ... already exists" on every policy that was
+-- already created by an earlier run. If you ever add a new policy to this
+-- file, always pair it with a `drop policy if exists` line first.
 
 create extension if not exists "uuid-ossp";
 
@@ -120,12 +130,15 @@ alter table public.profiles enable row level security;
 alter table public.stories enable row level security;
 alter table public.orders enable row level security;
 
+drop policy if exists "Users can view their own profile" on public.profiles;
 create policy "Users can view their own profile" on public.profiles
   for select using (auth.uid() = id);
 
+drop policy if exists "Users can view their own stories" on public.stories;
 create policy "Users can view their own stories" on public.stories
   for select using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert their own stories" on public.stories;
 create policy "Users can insert their own stories" on public.stories
   for insert with check (auth.uid() = user_id or user_id is null);
 
@@ -147,6 +160,7 @@ create table if not exists public.story_locations (
 
 alter table public.story_locations enable row level security;
 
+drop policy if exists "Anyone can view story locations" on public.story_locations;
 create policy "Anyone can view story locations"
   on public.story_locations for select
   using (true);
@@ -155,10 +169,12 @@ insert into storage.buckets (id, name, public)
 values ('story-settings', 'story-settings', true)
 on conflict (id) do nothing;
 
+drop policy if exists "Public can view story settings" on storage.objects;
 create policy "Public can view story settings"
   on storage.objects for select
   using (bucket_id = 'story-settings');
 
+drop policy if exists "Service role can upload story settings" on storage.objects;
 create policy "Service role can upload story settings"
   on storage.objects for insert
   with check (bucket_id = 'story-settings');
@@ -172,10 +188,12 @@ insert into storage.buckets (id, name, public)
 values ('custom-characters', 'custom-characters', true)
 on conflict (id) do nothing;
 
+drop policy if exists "Public can view custom characters" on storage.objects;
 create policy "Public can view custom characters"
   on storage.objects for select
   using (bucket_id = 'custom-characters');
 
+drop policy if exists "Service role can upload custom characters" on storage.objects;
 create policy "Service role can upload custom characters"
   on storage.objects for insert
   with check (bucket_id = 'custom-characters');
@@ -199,6 +217,7 @@ create table if not exists public.library_character_poses (
 
 alter table public.library_character_poses enable row level security;
 
+drop policy if exists "Anyone can view library character poses" on public.library_character_poses;
 create policy "Anyone can view library character poses"
   on public.library_character_poses for select
   using (true);
@@ -207,14 +226,17 @@ insert into storage.buckets (id, name, public)
 values ('library-characters', 'library-characters', true)
 on conflict (id) do nothing;
 
+drop policy if exists "Public can view library characters" on storage.objects;
 create policy "Public can view library characters"
   on storage.objects for select
   using (bucket_id = 'library-characters');
 
+drop policy if exists "Service role can upload library characters" on storage.objects;
 create policy "Service role can upload library characters"
   on storage.objects for insert
   with check (bucket_id = 'library-characters');
 
+drop policy if exists "Service role can update library characters" on storage.objects;
 create policy "Service role can update library characters"
   on storage.objects for update
   using (bucket_id = 'library-characters');
@@ -233,10 +255,10 @@ on conflict (id) do nothing;
 -- Individual composited page illustrations, also kept PRIVATE — for the
 -- same reason as story-pdfs above, and because a Premium page can depict
 -- a real child. generate-illustrations.js uploads each generated page
--- here and issues a 24-hour signed URL directly rather than a permanent
--- public link, since these are only ever needed transiently between
--- generating a book and completing checkout (or being folded into the
--- final story-pdfs PDF).
+-- here and issues a signed URL directly rather than a permanent public
+-- link, since these are only ever needed transiently between generating a
+-- book and completing checkout (or being folded into the final
+-- story-pdfs PDF).
 insert into storage.buckets (id, name, public)
 values ('story-pages', 'story-pages', false)
 on conflict (id) do nothing;
