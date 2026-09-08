@@ -59,7 +59,7 @@ export default function Preview() {
                 <img
                   src={draft.characterImageUrl}
                   alt={displayName}
-                  className="mx-auto h-24 w-24 rounded-full object-cover"
+                  className="mx-auto h-24 w-24 rounded-full object-contain"
                   style={{ border: `3px solid ${theme.accent}` }}
                 />
               ) : (

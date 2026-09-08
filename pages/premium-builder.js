@@ -386,7 +386,7 @@ export default function PremiumBuilder() {
                   <img
                     src={`data:image/png;base64,${characterPoses.neutral.base64}`}
                     alt={`${childName}'s illustrated character`}
-                    className="mx-auto h-48 w-48 rounded-cloth object-cover"
+                    className="mx-auto h-48 w-48 rounded-cloth object-contain"
                   />
                   <div className="mt-4 flex justify-center gap-2">
                     {POSES.filter((p) => p.id !== "neutral").map((p) =>
@@ -396,7 +396,7 @@ export default function PremiumBuilder() {
                           src={`data:image/png;base64,${characterPoses[p.id].base64}`}
                           alt={p.label}
                           title={p.label}
-                          className="h-12 w-12 rounded-cloth object-cover"
+                          className="h-12 w-12 rounded-cloth object-contain"
                         />
                       ) : (
                         <div
@@ -469,7 +469,7 @@ export default function PremiumBuilder() {
               )}
               {supportingCharacterUrl && (
                 <div className="mt-3 flex items-center gap-3">
-                  <img src={supportingCharacterUrl} alt={supportingCharacter?.name} className="h-16 w-16 rounded-cloth object-cover" />
+                  <img src={supportingCharacterUrl} alt={supportingCharacter?.name} className="h-16 w-16 rounded-cloth object-contain" />
                   <p className="font-body text-sm text-charcoal/70">
                     {supportingCharacter?.name} will join {childName || "your child"} — we'll automatically pick a
                     matching pose (happy, worried, exploring, etc.) for each page from their cached art.

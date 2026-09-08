@@ -396,7 +396,7 @@ export default function StoryBuilder() {
                 <img
                   src={libraryImages[character.id]}
                   alt={character.name}
-                  className="mt-3 h-16 w-16 rounded-full object-cover"
+                  className="mt-3 h-16 w-16 rounded-full object-contain"
                 />
               )}
               <p className="mt-1 font-body text-sm opacity-70">
