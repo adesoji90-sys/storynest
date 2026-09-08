@@ -16,11 +16,19 @@
 import { createClient } from "@supabase/supabase-js";
 import { STYLE_GUIDE } from "@/lib/imageStyle";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
+import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// Default Vercel duration is too short once rate-limit retries are
+// possible (see lib/openaiFetch.js).
+// 90s — see the matching comment in get-or-generate-character.js.
+export const config = {
+  maxDuration: 90,
+};
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -49,7 +57,7 @@ plate with NO people or characters in it: ${description}
 Wide, detailed environment suitable for reuse as a consistent backdrop
 across multiple illustrations of the same place.`;
 
-    const apiRes = await fetch("https://api.openai.com/v1/images/generations", {
+    const apiRes = await fetchOpenAIWithRetry("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

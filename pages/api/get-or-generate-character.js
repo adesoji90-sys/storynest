@@ -12,11 +12,23 @@ import { characters } from "@/data/characters";
 import { STYLE_GUIDE } from "@/lib/imageStyle";
 import { getPose } from "@/lib/characterPoses";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
+import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// Default Vercel duration is too short once rate-limit retries are
+// possible (see lib/openaiFetch.js).
+// 90s — raised from 30s because a single 429 retry at OpenAI's Tier 1
+// image rate limit (5/minute) can require waiting most of a minute for
+// the next window; 30s wasn't enough margin. Also requires Fluid Compute
+// enabled on the Vercel project once combined with the other image routes
+// in this app that need the full 280s — see generate-illustrations.js.
+export const config = {
+  maxDuration: 90,
+};
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -48,7 +60,7 @@ export default async function handler(req, res) {
 ${character.gender === "female" ? "girl" : "boy"} named ${character.name}.
 ${character.description} Now show them ${pose.prompt}.`;
 
-    const apiRes = await fetch("https://api.openai.com/v1/images/generations", {
+    const apiRes = await fetchOpenAIWithRetry("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

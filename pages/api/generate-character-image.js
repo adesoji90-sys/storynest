@@ -18,13 +18,28 @@ import { randomUUID } from "crypto";
 import { STYLE_GUIDE } from "@/lib/imageStyle";
 import { POSES } from "@/lib/characterPoses";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
+import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const CONCURRENCY = 3;
+// Reduced from 3 — a real, observed rate-limit error ("Rate limit reached
+// for gpt-image-1.5") showed up when several image generations fired
+// concurrently on a lower-tier OpenAI account. Sequential generation is
+// slower but far more likely to actually succeed; raise this back up once
+// your OpenAI account's rate limit tier is confirmed to handle it (check
+// platform.openai.com → Settings → Limits).
+const CONCURRENCY = 1;
+
+// 280s — see the matching comment in generate-illustrations.js for why
+// this needs Fluid Compute enabled on the Vercel project, and why 60s
+// (the standard Hobby ceiling) isn't enough at OpenAI's Tier 1 image rate
+// limit.
+export const config = {
+  maxDuration: 280,
+};
 
 function toBlob(base64, mimeType) {
   return new Blob([Buffer.from(base64, "base64")], { type: mimeType });
@@ -38,7 +53,7 @@ async function editImage(imageBase64, mimeType, prompt) {
   form.append("prompt", prompt);
   form.append("size", "1024x1024");
 
-  const apiRes = await fetch("https://api.openai.com/v1/images/edits", {
+  const apiRes = await fetchOpenAIWithRetry("https://api.openai.com/v1/images/edits", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: form,

@@ -202,6 +202,42 @@ Order confirmations are sent via [Resend](https://resend.com), with the actual P
 
 **Known gap:** if `/api/verify-payment` is never called (the parent closes the tab right after paying, before the client-side call completes) and the order only gets confirmed later via `/api/paystack-webhook`, no email goes out — the webhook handler only has the Paystack event data, not the story draft content needed to build a PDF. This is a real gap, not just a hypothetical: it means a parent who closes their browser at exactly the wrong moment gets charged but never receives their book by email (their `orders` row still gets marked `paid` correctly, so nothing is lost from a bookkeeping standpoint — but the delivery step doesn't retry). Fixing this properly needs the draft to be persisted server-side *before* payment (e.g., saved to Supabase keyed by the Paystack reference) so the webhook has something to build a PDF from — that's a real architecture change, not a quick patch, and isn't done here.
 
+## 6.63 A real, observed failure: OpenAI rate limits, and why the fix isn't just retry logic
+
+Confirmed via live Vercel logs (not a guess): illustration generation failed consistently with `Illustration API error: {"error": {"message": "Rate limit reached for gpt-image-1.5..."}}`. Checking the account's actual limit (Settings → Limits on platform.openai.com) confirmed the specific number: **5 images per minute**, shared across every gpt-image model. This is a hard external ceiling, not a bug in this app's code — and the math matters:
+
+```
+Basic,   5 pages: ~6 images  -> ~72s minimum, even with perfect pacing
+Basic,  15 pages: ~18 images -> ~216s minimum
+Premium, 5 pages: ~12 images -> ~144s minimum
+Premium,15 pages: ~24 images -> ~288s minimum
+```
+
+Even the *smallest* possible book already exceeds a 60-second window at this rate limit. No amount of retry-logic correctness changes that arithmetic — a serverless function that gets killed by its own duration limit before OpenAI's rate-limit window even resets was never going to succeed, no matter how well the retries were written.
+
+**Fix has two independent parts, and you need both:**
+
+**1. Retry logic + reduced concurrency** (already in the code): `lib/openaiFetch.js` wraps every OpenAI call with retry-on-429 behavior that respects OpenAI's own `Retry-After` header, and both batched routes (`generate-character-image.js`, `generate-illustrations.js`) dropped `CONCURRENCY` from 3 to 1. This is necessary but not sufficient on its own — it makes each individual request handled correctly, but doesn't create more time for the requests to complete in.
+
+**2. Vercel's Fluid Compute, to get more time to work with — THIS STEP IS REQUIRED, DO IT BEFORE DEPLOYING:** Vercel's standard function duration ceiling is 60 seconds, even on Hobby. Vercel's **Fluid Compute** feature raises that to up to 300 seconds, still on the free Hobby plan. At 5 images/minute, a ~280-second window has capacity for ~23 images — enough for every book size in this app, including the largest Premium book (24 images), *without waiting on anything from OpenAI at all*.
+
+- Go to your Vercel project → **Settings → Functions**, and enable **Fluid Compute** if it isn't already on.
+- `generate-illustrations.js` and `generate-character-image.js` are now set to `maxDuration: 280`; `get-or-generate-character.js` and `generate-location-background.js` to `maxDuration: 90`. **If you deploy without enabling Fluid Compute first, Vercel will reject these values outright** — Hobby's standard ceiling is 60, and anything above that requires Fluid Compute to be turned on.
+
+**The complementary, longer-term fix — also worth doing regardless:** OpenAI's image rate limit scales automatically with cumulative account spend, no support ticket needed:
+
+```
+Tier 1 (starting tier):  5 images/minute
+Tier 2 ($50 total spent):  20 images/minute
+Tier 3 ($100 total spent): 50 images/minute  <- comfortably covers everything
+Tier 4 ($250 total spent): 150 images/minute
+Tier 5 ($1,000 total spent): 250 images/minute
+```
+
+Some tiers also require a minimum number of days since your *first* payment, not just the spend amount — check the exact current numbers on your own Limits page, since OpenAI updates these periodically. Once you naturally cross $100 in cumulative OpenAI spend (which normal usage will do on its own), image generation gets fast enough that the Fluid Compute headroom becomes a safety margin rather than a requirement.
+
+**One thing worth knowing so the cost concern is calibrated correctly:** OpenAI does not charge for rate-limited (429) requests — only images that actually complete are billed. The money spent chasing this specific failure is whichever images succeeded *before* hitting the wall each time, not the rejected ones.
+
 ## 6.65 A real bug: validation ran outside the try/catch, so failures were silent
 
 Both `handleWriteStory` functions (Basic and Premium) used to call their validation function (`validate()` / `validateStoryFields()`) BEFORE entering the `try` block, with `setWriting(true)` and error-clearing also happening outside that block. If validation ever threw for any reason it wasn't specifically designed to handle — a malformed `template` lookup, an unexpected `undefined` somewhere — that exception was completely uncaught: no error message, no loading state change, nothing. Clicking the button would appear to do nothing at all, which is exactly as unhelpful as it sounds when real API costs are on the line for every attempt.
@@ -263,6 +299,7 @@ Every paid order now gets a PDF built server-side and stored in a **private** Su
 - [ ] Basic tier is actually illustrated: generate a Basic-tier book and confirm every page has an image, not just the cover — this is a behavior change from how the project started, easy to assume is still text-only if you're used to the old version
 - [ ] Basic tier character consistency: across a full Basic book, confirm the library character's face/outfit stays the same page to page (same principle as Premium, now applying to Basic too)
 - [ ] sessionStorage size: generate a full "15 pages" book on either tier and confirm no quota error — this previously failed reliably at just 5 pages once illustrations were real, so specifically re-test after any future change that adds more data to the draft object
+- [ ] Rate limits: generate a full illustrated book and confirm every page actually gets an image (check `illustrationFailedCount` is 0) — if this account's OpenAI rate limit tier is still low, retries help but won't guarantee success on every attempt; check platform.openai.com → Settings → Limits if failures persist
 - [ ] Preview: watermark shows, only the first ~2 paragraphs are visible, color theme applied correctly, "Buy this story" proceeds to checkout
 - [ ] Checkout, test mode: Paystack popup opens, a Paystack test card completes successfully, `/api/verify-payment` confirms and redirects to success
 - [ ] Before testing on a fresh environment, run `npm ci` (not `npm install`) so you get the exact locked dependency versions — this is what `package-lock.json` being committed is for

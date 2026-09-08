@@ -36,6 +36,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { STYLE_GUIDE } from "@/lib/imageStyle";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
+import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -58,11 +59,26 @@ const supabaseAdmin = createClient(
 // to buy it weeks later, without leaving the door open indefinitely.
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 30;
 
+// 280s, not 60s — 60 is the standard Vercel Hobby ceiling, but that's not
+// enough headroom at OpenAI's Tier 1 image rate limit (5 images/minute —
+// confirmed via real account testing). Vercel's Fluid Compute feature
+// raises the duration ceiling to up to 300s, even on Hobby, and at 5
+// images/minute a ~280s window has capacity for ~23 images — enough for
+// every book size this app generates, including the largest Premium book.
+// REQUIRES Fluid Compute to be enabled on the Vercel project (Project →
+// Settings → Functions) — without it, Vercel rejects any maxDuration over
+// 60 on Hobby at build time. See README "OpenAI rate limits" section.
 export const config = {
-  maxDuration: 60,
+  maxDuration: 280,
 };
 
-const CONCURRENCY = 3;
+// Reduced from 3 — a real, observed rate-limit error ("Rate limit reached
+// for gpt-image-1.5") showed up when several illustrations generated
+// concurrently on a lower-tier OpenAI account. Sequential generation is
+// slower but far more likely to actually succeed; raise this back up once
+// your OpenAI account's rate limit tier is confirmed to handle it (check
+// platform.openai.com → Settings → Limits).
+const CONCURRENCY = 1;
 
 async function resolveToBase64(ref) {
   if (ref.base64) return ref.base64;
@@ -112,7 +128,7 @@ async function generateOne(characterRefs, settingRef, prompt, shot) {
   );
   form.append("size", "1024x1024");
 
-  const apiRes = await fetch("https://api.openai.com/v1/images/edits", {
+  const apiRes = await fetchOpenAIWithRetry("https://api.openai.com/v1/images/edits", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: form,
