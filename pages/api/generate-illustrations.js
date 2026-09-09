@@ -1,6 +1,7 @@
 // POST /api/generate-illustrations
 // Body: {
 //   sessionId,   // scopes storage paths to this one book — see below
+//   styleId?,    // defaults to "painterly" — see lib/imageStyle.js
 //   scenes: [ { prompt, shot, characters: [{label, base64}|{label,url}], setting?: {label, base64}|{label,url} } ]
 // }
 //
@@ -34,7 +35,7 @@
 // version should move to a background job + polling.
 
 import { createClient } from "@supabase/supabase-js";
-import { STYLE_GUIDE } from "@/lib/imageStyle";
+import { getStyle } from "@/lib/imageStyle";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
 import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 
@@ -91,7 +92,7 @@ async function resolveToBase64(ref) {
   throw new Error("Reference image needs either base64 or url.");
 }
 
-async function generateOne(characterRefs, settingRef, prompt, shot) {
+async function generateOne(characterRefs, settingRef, prompt, shot, style) {
   const form = new FormData();
   form.append("model", IMAGE_MODEL);
   form.append("quality", IMAGE_QUALITY);
@@ -146,7 +147,7 @@ async function generateOne(characterRefs, settingRef, prompt, shot) {
     Scene: ${prompt}
     ${settingInstruction}
     ${shotInstruction}
-    Match the same style across all characters and the background: ${STYLE_GUIDE}.`
+    Match the same style across all characters and the background: ${style.guide}.`
   );
   form.append("size", "1024x1024");
 
@@ -203,7 +204,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { sessionId, scenes } = req.body || {};
+  const { sessionId, scenes, styleId = "painterly" } = req.body || {};
   if (!sessionId) {
     return res.status(400).json({ error: "Missing sessionId." });
   }
@@ -221,6 +222,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Too many reference characters in one scene — max 3." });
     }
   }
+  const style = getStyle(styleId);
 
   try {
     // Resolve each unique URL reference to base64 exactly once — most
@@ -253,7 +255,7 @@ export default async function handler(req, res) {
 
     const base64Images = await runInBatches(
       scenesResolved,
-      (scene) => generateOne(scene.characterRefs, scene.settingRef, scene.prompt, scene.shot),
+      (scene) => generateOne(scene.characterRefs, scene.settingRef, scene.prompt, scene.shot, style),
       CONCURRENCY
     );
 

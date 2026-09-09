@@ -1,5 +1,6 @@
 // POST /api/admin/regenerate-characters
-// Body: { characterIds: string[], poseIds?: string[] }  (poseIds defaults to ["neutral"])
+// Body: { characterIds: string[], poseIds?: string[], styleIds?: string[] }
+// (poseIds defaults to ["neutral"], styleIds defaults to ["painterly"])
 // Header: x-admin-secret: <ADMIN_SECRET>
 //
 // Purpose-built for exactly the situation that prompted it: a prompt fix
@@ -35,14 +36,16 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: "Requires a valid x-admin-secret header." });
   }
 
-  const { characterIds, poseIds = ["neutral"] } = req.body || {};
+  const { characterIds, poseIds = ["neutral"], styleIds = ["painterly"] } = req.body || {};
   if (!Array.isArray(characterIds) || characterIds.length === 0) {
     return res.status(400).json({ error: "characterIds must be a non-empty array." });
   }
-  if (characterIds.length * poseIds.length > 40) {
+  if (characterIds.length * poseIds.length * styleIds.length > 40) {
     return res.status(400).json({
-      error: `Too many combinations (${characterIds.length} characters × ${poseIds.length} poses = ${
-        characterIds.length * poseIds.length
+      error: `Too many combinations (${characterIds.length} characters × ${poseIds.length} poses × ${
+        styleIds.length
+      } styles = ${
+        characterIds.length * poseIds.length * styleIds.length
       }) for one request — split into smaller batches to stay within Vercel's function duration.`,
     });
   }
@@ -50,8 +53,10 @@ export default async function handler(req, res) {
   const results = [];
   for (const characterId of characterIds) {
     for (const poseId of poseIds) {
-      const result = await getOrGenerateLibraryCharacterPose(characterId, poseId, true);
-      results.push({ characterId, poseId, ...result });
+      for (const styleId of styleIds) {
+        const result = await getOrGenerateLibraryCharacterPose(characterId, poseId, true, styleId);
+        results.push({ characterId, poseId, styleId, ...result });
+      }
     }
   }
 

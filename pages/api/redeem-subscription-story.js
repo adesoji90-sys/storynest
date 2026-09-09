@@ -9,10 +9,26 @@
 // Deliberately Basic-tier only: Premium's per-story image-generation cost
 // doesn't fit a flat subscription without a fair-use cap, which isn't
 // built — see checkout.js's comment on `subscriptionCovers`.
+//
+// Two checks that didn't exist in the original flat-plan version, now that
+// subscriptions are per page tier with a real book cap (see
+// lib/pricing.js SUBSCRIPTION_MAX_BOOKS_PER_MONTH and the README section
+// on why the old "unlimited" plan was a real, quantified financial risk):
+// 1. The requested book's page tier must match what this parent actually
+//    subscribed to — a "short" subscriber can't redeem a free "long" book.
+// 2. subscription_books_used_this_period must be under the cap. Incremented
+//    here on success, reset to 0 on each renewal (paystack-webhook.js) or
+//    new signup (verify-subscription.js).
+//
+// This does a read-then-write to increment the usage counter rather than
+// an atomic database increment — an acceptable simplification given how
+// infrequently one account redeems (at most 5 times per month), not
+// something expected to race in practice.
 
 import { createClient } from "@supabase/supabase-js";
 import { buildStoryPdfBuffer, uint8ArrayToBase64 } from "@/lib/generateStoryPdf";
 import { sendStoryEmail } from "@/lib/email";
+import { SUBSCRIPTION_MAX_BOOKS_PER_MONTH } from "@/lib/pricing";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -24,9 +40,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { email, draft, tier, userId } = req.body || {};
-  if (!email || !draft || !userId) {
-    return res.status(400).json({ error: "Missing email, draft, or userId." });
+  const { email, draft, tier, pageTier, userId } = req.body || {};
+  if (!email || !draft || !userId || !pageTier) {
+    return res.status(400).json({ error: "Missing email, draft, pageTier, or userId." });
   }
   if (tier !== "basic") {
     return res.status(400).json({ error: "Subscription redemption is Basic-tier only." });
@@ -35,12 +51,22 @@ export default async function handler(req, res) {
   try {
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("subscription_status")
+      .select("subscription_status, subscription_page_tier, subscription_books_used_this_period")
       .eq("id", userId)
       .maybeSingle();
 
     if (profileError || profile?.subscription_status !== "active") {
       return res.status(403).json({ error: "No active subscription found for this account." });
+    }
+    if (profile.subscription_page_tier !== pageTier) {
+      return res.status(403).json({
+        error: `Your subscription covers "${profile.subscription_page_tier}" books, not "${pageTier}" — pay for this one individually, or switch your subscription plan.`,
+      });
+    }
+    if (profile.subscription_books_used_this_period >= SUBSCRIPTION_MAX_BOOKS_PER_MONTH) {
+      return res.status(403).json({
+        error: `You've used all ${SUBSCRIPTION_MAX_BOOKS_PER_MONTH} books included in this billing period — it resets when your subscription renews, or you can pay for this one individually.`,
+      });
     }
 
     let pdfBuffer = null;
@@ -74,6 +100,18 @@ export default async function handler(req, res) {
       pdf_path: pdfPath,
     });
     if (storyError) console.error("Supabase story insert error:", storyError);
+
+    // Only increment after everything else succeeded — a failed PDF/email
+    // still counted before under the old design's simplicity, but there
+    // was no cap to worry about then. Now that a cap exists, it's worth
+    // not burning someone's monthly allowance on a redemption that didn't
+    // actually deliver anything (though the PDF path failing soft above
+    // means this will still usually go through — a genuinely failed
+    // redemption is one where the whole request throws, caught below).
+    await supabaseAdmin
+      .from("profiles")
+      .update({ subscription_books_used_this_period: profile.subscription_books_used_this_period + 1 })
+      .eq("id", userId);
 
     if (pdfBuffer) {
       try {

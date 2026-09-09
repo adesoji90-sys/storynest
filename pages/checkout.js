@@ -4,7 +4,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { useRouter } from "next/router";
 import { getCharacterById } from "@/data/characters";
-import { getPageTier, getPrice } from "@/lib/pricing";
+import { getPageTier, getPrice, SUBSCRIPTION_MAX_BOOKS_PER_MONTH } from "@/lib/pricing";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 
 // Paystack Inline v2 — loaded directly rather than through react-paystack,
@@ -25,6 +25,8 @@ export default function Checkout() {
   const [processing, setProcessing] = useState(false);
   const [session, setSession] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionPageTier, setSubscriptionPageTier] = useState(null);
+  const [subscriptionBooksUsed, setSubscriptionBooksUsed] = useState(0);
   const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
@@ -44,10 +46,12 @@ export default function Checkout() {
       setEmail(data.session.user.email || "");
       const { data: profile } = await supabaseBrowser
         .from("profiles")
-        .select("subscription_status")
+        .select("subscription_status, subscription_page_tier, subscription_books_used_this_period")
         .eq("id", data.session.user.id)
         .maybeSingle();
       setIsSubscribed(profile?.subscription_status === "active");
+      setSubscriptionPageTier(profile?.subscription_page_tier || null);
+      setSubscriptionBooksUsed(profile?.subscription_books_used_this_period || 0);
     }
     checkSession();
   }, []);
@@ -61,7 +65,17 @@ export default function Checkout() {
   // ("Unlimited digital stories" was scoped to the Basic tier's reusable
   // character library — Premium's per-story image-generation cost doesn't
   // fit a flat subscription without a fair-use cap, which isn't built).
-  const subscriptionCovers = tier === "basic" && isSubscribed;
+  //
+  // Also now checks the page-tier match and remaining monthly allowance —
+  // subscriptions are per page tier with a real cap (see lib/pricing.js),
+  // not a flat "unlimited" plan anymore. Checking this here, not just
+  // relying on the API to reject an invalid redemption, is what keeps the
+  // button honest: without this, a subscriber whose plan doesn't cover
+  // this page tier (or who's used all their books this period) would see
+  // "Included in your plan" right up until the API rejected it.
+  const subscriptionRemaining = SUBSCRIPTION_MAX_BOOKS_PER_MONTH - subscriptionBooksUsed;
+  const subscriptionCovers =
+    tier === "basic" && isSubscribed && subscriptionPageTier === pageTierId && subscriptionRemaining > 0;
 
   async function finalizeOrder(reference) {
     const res = await fetch("/api/verify-payment", {
@@ -171,6 +185,14 @@ export default function Checkout() {
               </ul>
             )}
           </div>
+
+          {isSubscribed && !subscriptionCovers && tier === "basic" && (
+            <p className="mt-3 font-body text-sm text-charcoal/60">
+              {subscriptionPageTier !== pageTierId
+                ? `Your subscription covers "${getPageTier(subscriptionPageTier)?.label || subscriptionPageTier}" books — this one's "${pageTier.label}", so it's billed separately.`
+                : `You've used all ${SUBSCRIPTION_MAX_BOOKS_PER_MONTH} books included in this billing period — it resets when your subscription renews.`}
+            </p>
+          )}
 
           {subscriptionCovers ? (
             <>

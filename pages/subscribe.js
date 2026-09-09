@@ -4,30 +4,34 @@ import Link from "next/link";
 import Script from "next/script";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+import { PAGE_TIERS, SUBSCRIPTION_PRICING_NAIRA, SUBSCRIPTION_MAX_BOOKS_PER_MONTH } from "@/lib/pricing";
 
 // See checkout.js for why this calls Paystack Inline v2 directly instead
 // of through react-paystack (unmaintained, stuck on the old v1 popup API).
 const PAYSTACK_SCRIPT_SRC = "https://js.paystack.co/v2/inline.js";
 
-const PLANS = [
-  {
-    id: "monthly",
-    label: "Monthly",
-    priceLabel: "₦8,000/month",
-    planCode: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_MONTHLY,
-  },
-  {
-    id: "yearly",
-    label: "Yearly",
-    priceLabel: "₦50,000/year",
-    planCode: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_YEARLY,
-  },
-];
+// One plan per page tier now, not a monthly/yearly billing-frequency
+// choice — see lib/pricing.js for why (the old flat "unlimited" plan was
+// a real, quantified financial risk once Basic tier started generating
+// real illustrations). Monthly billing only for now; yearly billing was
+// dropped as a deliberate scope simplification, not because it couldn't
+// work the same way per tier.
+const PLANS = PAGE_TIERS.map((t) => ({
+  id: t.id,
+  label: t.label,
+  priceLabel: `₦${SUBSCRIPTION_PRICING_NAIRA[t.id].toLocaleString("en-NG")}/month`,
+  planCode:
+    t.id === "short"
+      ? process.env.NEXT_PUBLIC_PAYSTACK_PLAN_SHORT
+      : t.id === "standard"
+      ? process.env.NEXT_PUBLIC_PAYSTACK_PLAN_STANDARD
+      : process.env.NEXT_PUBLIC_PAYSTACK_PLAN_LONG,
+}));
 
 export default function Subscribe() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
-  const [selected, setSelected] = useState("monthly");
+  const [selected, setSelected] = useState("standard");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [scriptReady, setScriptReady] = useState(false);
@@ -49,7 +53,7 @@ export default function Subscribe() {
   function handleSubscribe() {
     if (!plan?.planCode) {
       setError(
-        "This plan isn't configured yet — add NEXT_PUBLIC_PAYSTACK_PLAN_MONTHLY / _YEARLY to your environment (see README)."
+        `This plan isn't configured yet — add NEXT_PUBLIC_PAYSTACK_PLAN_${selected.toUpperCase()} to your environment (see README).`
       );
       return;
     }
@@ -74,7 +78,7 @@ export default function Subscribe() {
           const res = await fetch("/api/verify-subscription", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reference, userId: session.user.id, plan: selected }),
+            body: JSON.stringify({ reference, userId: session.user.id, pageTier: selected }),
           });
           if (!res.ok) throw new Error("Couldn't confirm the subscription.");
           router.push("/account");
@@ -102,23 +106,25 @@ export default function Subscribe() {
         </header>
 
         <div className="mx-auto max-w-2xl px-6 pb-24">
-          <h1 className="font-display text-3xl">Unlimited Basic-tier stories</h1>
+          <h1 className="font-display text-3xl">Basic-tier subscriptions</h1>
           <p className="mt-2 font-body text-charcoal/70">
-            One subscription, unlimited Basic-tier stories from the 30-character library. Premium stories with a
-            custom photo character are billed separately.
+            Up to {SUBSCRIPTION_MAX_BOOKS_PER_MONTH} Basic-tier books a month from the 30-character library, at one
+            page length of your choice — pick the length you use most. Premium stories with a custom photo
+            character are always billed separately.
           </p>
 
-          <div className="mt-8 grid grid-cols-2 gap-4">
+          <div className="mt-8 grid grid-cols-3 gap-3">
             {PLANS.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setSelected(p.id)}
-                className={`rounded-cloth border-2 p-6 text-left font-body ${
+                className={`rounded-cloth border-2 p-5 text-left font-body ${
                   selected === p.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15 bg-white"
                 }`}
               >
                 <p className="font-bold">{p.label}</p>
                 <p className="mt-1 text-charcoal/60">{p.priceLabel}</p>
+                <p className="mt-1 text-xs text-charcoal/40">Up to {SUBSCRIPTION_MAX_BOOKS_PER_MONTH}/month</p>
               </button>
             ))}
           </div>
@@ -134,6 +140,8 @@ export default function Subscribe() {
           </button>
           <p className="mt-3 text-center font-body text-xs text-charcoal/50">
             Recurring billing via Paystack. Cancel anytime from your Paystack receipt email or by contacting support.
+            Your book plan is fixed to the page length you subscribe at — a book at a different length is billed
+            individually at the regular price.
           </p>
         </div>
       </main>

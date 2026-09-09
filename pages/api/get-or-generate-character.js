@@ -1,11 +1,14 @@
 // POST /api/get-or-generate-character
-// Body: { characterId, poseId?, force? }  (poseId defaults to "neutral")
+// Body: { characterId, poseId?, styleId?, force? }  (poseId defaults to
+// "neutral", styleId defaults to "painterly" — see lib/imageStyle.js)
 //
-// Each (character, pose) pair is generated exactly ONCE, ever, and cached —
-// see lib/characterPoses.js for the fixed pose set. A story never triggers a
-// new generation for a library character; premium-builder.js SELECTS the
-// pose that fits each scene and calls this route, which returns the cached
-// image immediately once every pose has been generated at least once.
+// Each (character, pose, style) triple is generated exactly ONCE, ever, and
+// cached — see lib/characterPoses.js for the fixed pose set and
+// lib/imageStyle.js for the style set. A story never triggers a new
+// generation for a library character; the builder pages SELECT the pose
+// that fits each scene and call this route, which returns the cached image
+// immediately once that exact pose+style combination has been generated at
+// least once.
 //
 // `force: true` bypasses the cache and regenerates — this is what lets an
 // already-cached character be redone after a prompt fix (e.g., the
@@ -40,7 +43,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { characterId, poseId = "neutral", force = false } = req.body || {};
+  const { characterId, poseId = "neutral", styleId = "painterly", force = false } = req.body || {};
 
   if (force) {
     const providedSecret = req.headers["x-admin-secret"];
@@ -49,7 +52,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const result = await getOrGenerateLibraryCharacterPose(characterId, poseId, force);
+  const result = await getOrGenerateLibraryCharacterPose(characterId, poseId, force, styleId);
   if (!result.ok) {
     const status = result.error === "Unknown character id." ? 400 : 502;
     return res.status(status).json({ error: result.error });

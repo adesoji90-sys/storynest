@@ -7,6 +7,7 @@ import { templates, getTemplateById } from "@/data/templates";
 import { colorThemes, getThemeById } from "@/data/colorThemes";
 import { POSES } from "@/lib/characterPoses";
 import { PAGE_TIERS, getPrice } from "@/lib/pricing";
+import { STYLES } from "@/lib/imageStyle";
 import GenerationProgressModal from "@/components/GenerationProgressModal";
 
 const WRITE_STEPS = ["Writing your story"];
@@ -44,6 +45,7 @@ export default function PremiumBuilder() {
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [orientation, setOrientation] = useState("portrait");
+  const [styleId, setStyleId] = useState("painterly");
   const [supportingCharacterId, setSupportingCharacterId] = useState("");
   const [supportingCharacterUrl, setSupportingCharacterUrl] = useState(null);
   const [resolvingSupporting, setResolvingSupporting] = useState(false);
@@ -92,6 +94,7 @@ export default function PremiumBuilder() {
           photoBase64: base64,
           mimeType: photoFile.type || "image/png",
           childName,
+          styleId,
         }),
       });
       if (!res.ok) throw new Error("Couldn't generate a character from that photo. Try a clear, front-facing photo.");
@@ -203,7 +206,7 @@ export default function PremiumBuilder() {
           const r = await fetch("/api/generate-location-background", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ customCharacterId, locationId, description }),
+            body: JSON.stringify({ customCharacterId, locationId, description, styleId }),
           });
           const data = r.ok ? await r.json() : null;
           if (data?.imageUrl) locationUrlById[locationId] = data.imageUrl;
@@ -223,7 +226,7 @@ export default function PremiumBuilder() {
             const r = await fetch("/api/get-or-generate-character", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ characterId: supportingCharacterId, poseId }),
+              body: JSON.stringify({ characterId: supportingCharacterId, poseId, styleId }),
             });
             const data = r.ok ? await r.json() : null;
             return [poseId, data?.imageUrl || null];
@@ -259,7 +262,7 @@ export default function PremiumBuilder() {
       const illustrationRes = await fetch("/api/generate-illustrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: customCharacterId, scenes }),
+        body: JSON.stringify({ sessionId: customCharacterId, scenes, styleId }),
       });
       if (!illustrationRes.ok) throw new Error("Illustration generation failed. Please try again.");
       const { images, failedCount } = await illustrationRes.json();
@@ -270,6 +273,7 @@ export default function PremiumBuilder() {
         themeId,
         pageTier,
         orientation,
+        styleId,
         authorName: authorName.trim() || null,
         title: story.title || title,
         pages: story.pages.map((p, i) => ({ text: p.text, image: images[i] || null })),
@@ -364,6 +368,26 @@ export default function PremiumBuilder() {
                     <option value="male">Boy</option>
                   </select>
                 </div>
+              </div>
+
+              <label className="mt-6 block font-body font-semibold">Illustration style</label>
+              <p className="mt-1 font-body text-xs text-charcoal/50">
+                Choose before generating — the character's style is locked in across all 6 poses once created,
+                the same way their face and outfit are.
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {Object.values(STYLES).map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setStyleId(s.id)}
+                    className={`rounded-cloth border-2 p-3 text-left font-body ${
+                      styleId === s.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                    }`}
+                  >
+                    <p className="font-bold">{s.label}</p>
+                    <p className="text-xs text-charcoal/50">{s.description}</p>
+                  </button>
+                ))}
               </div>
 
               <button

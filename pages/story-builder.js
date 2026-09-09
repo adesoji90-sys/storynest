@@ -6,6 +6,7 @@ import { characters, getCharacterById } from "@/data/characters";
 import { templates, getTemplateById } from "@/data/templates";
 import { colorThemes, getThemeById } from "@/data/colorThemes";
 import { PAGE_TIERS, getPrice } from "@/lib/pricing";
+import { STYLES } from "@/lib/imageStyle";
 import GenerationProgressModal from "@/components/GenerationProgressModal";
 
 // Split into two stages on purpose: writing the story (cheap, a Claude
@@ -31,6 +32,7 @@ export default function StoryBuilder() {
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [orientation, setOrientation] = useState("portrait");
+  const [styleId, setStyleId] = useState("painterly");
   const [values, setValues] = useState({});
   const [errors, setErrors] = useState({});
   const [libraryImages, setLibraryImages] = useState({});
@@ -148,7 +150,7 @@ export default function StoryBuilder() {
           const r = await fetch("/api/generate-location-background", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ customCharacterId: storySessionId, locationId, description }),
+            body: JSON.stringify({ customCharacterId: storySessionId, locationId, description, styleId }),
           });
           const data = r.ok ? await r.json() : null;
           if (data?.imageUrl) locationUrlById[locationId] = data.imageUrl;
@@ -170,7 +172,7 @@ export default function StoryBuilder() {
           const r = await fetch("/api/get-or-generate-character", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ characterId, poseId }),
+            body: JSON.stringify({ characterId, poseId, styleId }),
           });
           const data = r.ok ? await r.json() : null;
           return [poseId, data?.imageUrl || null];
@@ -192,7 +194,7 @@ export default function StoryBuilder() {
       const illustrationRes = await fetch("/api/generate-illustrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: storySessionId, scenes }),
+        body: JSON.stringify({ sessionId: storySessionId, scenes, styleId }),
       });
       if (!illustrationRes.ok) throw new Error("Illustration generation failed. Please try again.");
       const { images, failedCount } = await illustrationRes.json();
@@ -201,11 +203,18 @@ export default function StoryBuilder() {
         tier: "basic",
         templateId,
         characterId,
-        characterImageUrl: libraryImages[characterId] || poseUrlByPoseId.neutral || null,
+        // poseUrlByPoseId.neutral comes FIRST now, not last — it's resolved
+        // fresh against the chosen styleId, while libraryImages[characterId]
+        // comes from the bulk /api/library-characters fetch, which defaults
+        // to "painterly" regardless of what style this book actually uses.
+        // Prioritizing the wrong one here would silently show a
+        // painterly-style cover on a book generated in a different style.
+        characterImageUrl: poseUrlByPoseId.neutral || libraryImages[characterId] || null,
         backCoverImageUrl: poseUrlByPoseId.happy || poseUrlByPoseId.neutral || null,
         themeId,
         pageTier,
         orientation,
+        styleId,
         authorName: authorName.trim() || null,
         title: story.title || title,
         pages: story.pages.map((p, i) => ({ text: p.text, image: images[i] || null })),
@@ -356,6 +365,26 @@ export default function StoryBuilder() {
                   </button>
                 ))}
               </div>
+
+              <label className="mt-6 block font-body font-semibold">Illustration style</label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {Object.values(STYLES).map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setStyleId(s.id)}
+                    className={`rounded-cloth border-2 p-3 text-left font-body ${
+                      styleId === s.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                    }`}
+                  >
+                    <p className="font-bold">{s.label}</p>
+                    <p className="text-xs text-charcoal/50">{s.description}</p>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 font-body text-xs text-charcoal/50">
+                The character preview on the right always shows the default style — your book will use the style
+                you pick here.
+              </p>
 
               <label className="mt-6 block font-body font-semibold">Color theme</label>
               <div className="mt-2 grid grid-cols-4 gap-2">

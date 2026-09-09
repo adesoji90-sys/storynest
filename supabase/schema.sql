@@ -22,7 +22,9 @@ create table if not exists public.profiles (
   -- Subscription state, kept in sync by /api/verify-subscription (initial
   -- signup) and /api/paystack-webhook (renewals, cancellations, failures).
   subscription_status text default 'none', -- none | active | past_due | cancelled
-  subscription_plan text, -- 'monthly' | 'yearly'
+  subscription_plan text, -- legacy: used to mean 'monthly' | 'yearly' billing frequency, before subscriptions became per-page-tier (see subscription_page_tier). Kept for old rows; new subscriptions don't set this.
+  subscription_page_tier text, -- 'short' | 'standard' | 'long' — see lib/pricing.js SUBSCRIPTION_PRICING_NAIRA. Which page-length plan this parent is on; redemption only covers books at this exact page tier.
+  subscription_books_used_this_period int not null default 0, -- resets to 0 on each successful renewal charge (see paystack-webhook.js) or on new signup (verify-subscription.js). Checked against SUBSCRIPTION_MAX_BOOKS_PER_MONTH before allowing a free redemption.
   subscription_renews_at timestamptz,
   paystack_customer_code text,
   created_at timestamptz default now()
@@ -32,6 +34,8 @@ create table if not exists public.profiles (
 -- columns to an existing table safely (no-op if already present).
 alter table public.profiles add column if not exists subscription_status text default 'none';
 alter table public.profiles add column if not exists subscription_plan text;
+alter table public.profiles add column if not exists subscription_page_tier text;
+alter table public.profiles add column if not exists subscription_books_used_this_period int not null default 0;
 alter table public.profiles add column if not exists subscription_renews_at timestamptz;
 alter table public.profiles add column if not exists paystack_customer_code text;
 
@@ -210,10 +214,20 @@ create policy "Service role can upload custom characters"
 create table if not exists public.library_character_poses (
   character_id text not null,  -- matches the character id in data/characters.js
   pose_id text not null,       -- matches a POSES id in lib/characterPoses.js
+  style_id text not null default 'painterly', -- matches a STYLES id in lib/imageStyle.js
   image_url text,
   updated_at timestamptz default now(),
-  primary key (character_id, pose_id)
+  primary key (character_id, pose_id, style_id)
 );
+
+-- If you ran this schema before the style-choice feature existed, these
+-- add the new column and widen the primary key to include it — safe to
+-- run on a table that already has data. Existing rows default to
+-- 'painterly' because every image generated before this feature existed
+-- was, in fact, painterly (the only style that existed at the time).
+alter table public.library_character_poses add column if not exists style_id text not null default 'painterly';
+alter table public.library_character_poses drop constraint if exists library_character_poses_pkey;
+alter table public.library_character_poses add primary key (character_id, pose_id, style_id);
 
 alter table public.library_character_poses enable row level security;
 

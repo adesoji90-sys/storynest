@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+import { getPageTier, SUBSCRIPTION_MAX_BOOKS_PER_MONTH } from "@/lib/pricing";
 
 export default function Account() {
   const router = useRouter();
@@ -113,7 +114,13 @@ export default function Account() {
           <div className="mt-6 rounded-cloth bg-white p-6 shadow-sm">
             {isSubscribed ? (
               <>
-                <p className="font-body font-bold text-leaf">Subscription active — {profile.subscription_plan}</p>
+                <p className="font-body font-bold text-leaf">
+                  Subscription active — {getPageTier(profile.subscription_page_tier)?.label || profile.subscription_page_tier} books
+                </p>
+                <p className="font-body text-sm text-charcoal/60">
+                  {SUBSCRIPTION_MAX_BOOKS_PER_MONTH - (profile.subscription_books_used_this_period || 0)} of{" "}
+                  {SUBSCRIPTION_MAX_BOOKS_PER_MONTH} books remaining this period
+                </p>
                 {profile.subscription_renews_at && (
                   <p className="font-body text-sm text-charcoal/60">
                     Renews {new Date(profile.subscription_renews_at).toLocaleDateString()}
@@ -122,7 +129,7 @@ export default function Account() {
               </>
             ) : (
               <>
-                <p className="font-body">No active subscription — Basic stories are unlimited on the plan.</p>
+                <p className="font-body">No active subscription — each Basic story is billed individually.</p>
                 <Link
                   href="/subscribe"
                   className="mt-3 inline-block rounded-cloth bg-coral_ember px-5 py-2 font-body font-bold text-white"

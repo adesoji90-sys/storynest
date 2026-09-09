@@ -54,7 +54,15 @@ export default async function handler(req, res) {
       if (customer?.customer_code) {
         await supabaseAdmin
           .from("profiles")
-          .update({ subscription_status: "active" })
+          .update({
+            subscription_status: "active",
+            // Reset on every successful renewal charge — a new billing
+            // period has been paid for, so the book count starts over.
+            // Without this, a subscriber's usage would just accumulate
+            // forever and permanently lock them out after their first
+            // period's worth of books.
+            subscription_books_used_this_period: 0,
+          })
           .eq("paystack_customer_code", customer.customer_code);
       }
       return res.status(200).json({ received: true });

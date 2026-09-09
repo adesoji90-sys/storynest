@@ -1,5 +1,12 @@
 // POST /api/generate-location-background
-// Body: { customCharacterId, locationId, description }
+// Body: { customCharacterId, locationId, description, styleId? }
+// (styleId defaults to "painterly" — see lib/imageStyle.js)
+//
+// Style is NOT part of the cache key here, unlike library character
+// poses — this cache is already scoped per-book (via customCharacterId),
+// and one book only ever uses one style throughout, so there's nothing
+// extra to key by. Style just needs to be threaded into the prompt so the
+// background matches whatever style the rest of the book uses.
 //
 // A recurring setting within one story (the market, her bedroom, the school
 // playground) gets its background generated exactly ONCE, the first time
@@ -14,7 +21,7 @@
 // look like the "market" in another family's book.
 
 import { createClient } from "@supabase/supabase-js";
-import { STYLE_GUIDE } from "@/lib/imageStyle";
+import { getStyle } from "@/lib/imageStyle";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
 import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 
@@ -35,10 +42,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { customCharacterId, locationId, description } = req.body || {};
+  const { customCharacterId, locationId, description, styleId = "painterly" } = req.body || {};
   if (!customCharacterId || !locationId || !description) {
     return res.status(400).json({ error: "customCharacterId, locationId, and description are required." });
   }
+  const style = getStyle(styleId);
 
   try {
     const { data: existing } = await supabaseAdmin
@@ -52,7 +60,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ imageUrl: existing.image_url, cached: true });
     }
 
-    const prompt = `A ${STYLE_GUIDE} of this setting, as a background/environment
+    const prompt = `A ${style.guide} of this setting, as a background/environment
 plate with NO people or characters in it: ${description}
 Wide, detailed environment suitable for reuse as a consistent backdrop
 across multiple illustrations of the same place.`;

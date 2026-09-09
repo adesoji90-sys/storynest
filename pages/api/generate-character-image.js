@@ -1,11 +1,17 @@
 // POST /api/generate-character-image
-// Body: { photoBase64, mimeType, childName }
+// Body: { photoBase64, mimeType, childName, styleId? }  (styleId defaults
+// to "painterly" — see lib/imageStyle.js)
 //
 // Generates ALL poses for this custom character in one batch, right now, at
 // upload time — never one at a time, per story, later. This is the same
 // non-negotiable-consistency principle as the library characters: a
 // character's appearance in every pose is fixed once and only selected
 // from after that, never freshly re-synthesized mid-story.
+//
+// Unlike library characters, style is NOT part of a cache key here — each
+// customCharacterId is unique to one upload/one book, never reused across
+// families, so there's nothing to key by. The chosen style just needs to
+// be threaded into the prompt once, consistently, across all 6 poses.
 //
 // PRIVACY: the original photo is used exactly once, in-memory, to generate
 // the "neutral" pose — then every other pose is derived from that generated
@@ -15,7 +21,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
-import { STYLE_GUIDE } from "@/lib/imageStyle";
+import { getStyle } from "@/lib/imageStyle";
 import { POSES } from "@/lib/characterPoses";
 import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
 import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
@@ -95,14 +101,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { photoBase64, mimeType = "image/png", childName } = req.body || {};
+  const { photoBase64, mimeType = "image/png", childName, styleId = "painterly" } = req.body || {};
   if (!photoBase64) {
     return res.status(400).json({ error: "No photo provided." });
   }
+  const style = getStyle(styleId);
 
   try {
     const neutralPose = POSES.find((p) => p.id === "neutral");
-    const neutralPrompt = `Redraw this child as a warm ${STYLE_GUIDE}, ${neutralPose.prompt}, in
+    const neutralPrompt = `Redraw this child as a warm ${style.guide}, ${neutralPose.prompt}, in
       the same illustration style as a StoryNest storybook.${childName ? ` The child's name is ${childName}.` : ""}`;
 
     // Step 1: the ONLY call that touches the original photo.
@@ -123,7 +130,7 @@ export default async function handler(req, res) {
           neutralBase64,
           "image/png",
           `Using this reference character, redraw them ${pose.prompt}. Keep the same
-          ${STYLE_GUIDE}, matching hairstyle, skin tone, and outfit colors as the reference.`
+          ${style.guide}, matching hairstyle, skin tone, and outfit colors as the reference.`
         ),
       CONCURRENCY
     );
@@ -158,7 +165,7 @@ export default async function handler(req, res) {
       })
     );
 
-    return res.status(200).json({ customCharacterId, poses, failedPoses });
+    return res.status(200).json({ customCharacterId, poses, failedPoses, styleId: style.id });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Unexpected server error." });

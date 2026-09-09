@@ -61,7 +61,7 @@ export default function Home() {
           content="Create a personalized bedtime story starring your child, with African and Western characters. Choose a character, fill a template, download your storybook in minutes."
         />
         <meta property="og:title" content="StoryNest" />
-        <meta property="og:description" content="Every Nigerian child deserves a story where they're the hero." />
+        <meta property="og:description" content="A real, illustrated storybook — starring your child — ready before bedtime." />
       </Head>
 
       <main className="bg-ivory_cloth text-charcoal">
@@ -114,18 +114,18 @@ export default function Home() {
 
             <div className="relative z-10 mx-auto max-w-5xl px-6 pb-20 pt-10 md:pt-16">
               <h1 className="mt-4 max-w-2xl font-display text-4xl leading-[1.1] md:text-6xl">
-                Every Nigerian child deserves a story where they're the hero.
+                A real, illustrated storybook — starring your child — ready before bedtime.
               </h1>
               <p className="mt-6 max-w-md font-body text-lg text-ivory_cloth/85">
-                Pick a character who looks and sounds like your child, fill in a few details, and hold a
-                finished storybook in your hands before bedtime.
+                Pick a character or upload their photo, add a few details, and get a finished, downloadable
+                storybook in minutes — not a template, a real book made just for them.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/characters"
                 className="rounded-cloth bg-coral_ember px-7 py-3 font-body font-bold text-white transition hover:bg-coral_ember/90"
               >
-                Create your first story
+                Create Their Storybook Now
               </Link>
               <a
                 href="#how-it-works"
