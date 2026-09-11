@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -8,33 +8,35 @@ import { colorThemes, getThemeById } from "@/data/colorThemes";
 import { POSES } from "@/lib/characterPoses";
 import { PAGE_TIERS, getPrice } from "@/lib/pricing";
 import { STYLES } from "@/lib/imageStyle";
+import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import GenerationProgressModal from "@/components/GenerationProgressModal";
 
 const WRITE_STEPS = ["Writing your story"];
 const ILLUSTRATE_STEPS = ["Setting up backgrounds", "Illustrating your pages"];
 const CHARACTER_STEPS = ["Creating every pose"];
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function PremiumBuilder() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [session, setSession] = useState(undefined); // undefined = still checking, null = not logged in
 
-  // Step 1 — photo + child details
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
+  // Step 1 — character: create new (descriptive traits, no photo — see
+  // README "Premium tier: character generator replaces photo upload") or
+  // import a previously-created one from this account.
+  const [characterMode, setCharacterMode] = useState("create"); // "create" | "import"
+  const [savedCharacters, setSavedCharacters] = useState([]);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const [childName, setChildName] = useState("");
   const [childAge, setChildAge] = useState("");
   const [childGender, setChildGender] = useState("female");
+  const [childEthnicity, setChildEthnicity] = useState("");
+  const [childHair, setChildHair] = useState("");
+  const [childSkinTone, setChildSkinTone] = useState("");
+  const [childEyeColor, setChildEyeColor] = useState("");
+  const [childOutfit, setChildOutfit] = useState("");
+  const [childPersonality, setChildPersonality] = useState("");
   const [generatingCharacter, setGeneratingCharacter] = useState(false);
-  const [characterPoses, setCharacterPoses] = useState(null); // { neutral: {base64,url}, happy: {...}, ... }
+  const [characterPoses, setCharacterPoses] = useState(null); // { neutral: {url}, happy: {url}, ... }
   const [customCharacterId, setCustomCharacterId] = useState(null);
   const [failedCustomPoses, setFailedCustomPoses] = useState([]);
   const [characterError, setCharacterError] = useState("");
@@ -68,42 +70,99 @@ export default function PremiumBuilder() {
     [supportingCharacterId]
   );
 
-  async function handlePhotoChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setCharacterPoses(null);
-    setFailedCustomPoses([]);
-    setCharacterError("");
-  }
+  // Premium now REQUIRES login — a custom character scoped to "creator's
+  // account only" has nowhere to live for a guest. This is a real change
+  // from before (guest checkout used to work for both tiers); Basic tier
+  // is unaffected.
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabaseBrowser.auth.getSession();
+      if (!data.session) {
+        router.replace("/login?redirect=/premium-builder");
+        return;
+      }
+      setSession(data.session);
+    }
+    checkSession();
+  }, [router]);
+
+  // Load this account's previously-created custom characters for the
+  // "import" flow — a direct RLS-scoped query, not a dedicated API route,
+  // the same pattern account.js already uses for a parent's saved
+  // stories: the anon key plus row-level security means this can only
+  // ever return this signed-in user's own rows.
+  useEffect(() => {
+    if (!session) return;
+    setLoadingSaved(true);
+    supabaseBrowser
+      .from("custom_characters")
+      .select("id, name, age, gender, ethnicity, description")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setSavedCharacters(data || []))
+      .finally(() => setLoadingSaved(false));
+  }, [session]);
 
   async function handleGenerateCharacter() {
-    if (!photoFile) {
-      setCharacterError("Upload a photo first.");
+    if (!childName.trim() || !childEthnicity.trim()) {
+      setCharacterError("Name and ethnicity are required.");
       return;
     }
     setGeneratingCharacter(true);
     setCharacterError("");
     try {
-      const base64 = await fileToBase64(photoFile);
-      const res = await fetch("/api/generate-character-image", {
+      const res = await fetch("/api/generate-custom-character", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          photoBase64: base64,
-          mimeType: photoFile.type || "image/png",
-          childName,
+          userId: session.user.id,
+          name: childName,
+          age: childAge || null,
+          gender: childGender,
+          ethnicity: childEthnicity,
+          hair: childHair,
+          skinTone: childSkinTone,
+          eyeColor: childEyeColor,
+          outfit: childOutfit,
+          personality: childPersonality,
           styleId,
         }),
       });
-      if (!res.ok) throw new Error("Couldn't generate a character from that photo. Try a clear, front-facing photo.");
+      if (!res.ok) throw new Error("Couldn't create that character. Try again in a moment.");
       const data = await res.json();
       setCharacterPoses(data.poses);
       setCustomCharacterId(data.customCharacterId);
       setFailedCustomPoses(data.failedPoses || []);
     } catch (err) {
       setCharacterError(err.message || "Something went wrong.");
+    } finally {
+      setGeneratingCharacter(false);
+    }
+  }
+
+  // Loads every cached pose for a previously-created character, so
+  // reusing one skips character generation entirely and goes straight to
+  // Step 2 — this is the actual "import a character" the account owns.
+  async function handleImportCharacter(character) {
+    setCharacterError("");
+    setGeneratingCharacter(true);
+    try {
+      const { data, error } = await supabaseBrowser
+        .from("custom_character_poses")
+        .select("pose_id, image_url")
+        .eq("custom_character_id", character.id);
+      if (error || !data || data.length === 0) {
+        throw new Error("Couldn't load that character's poses — try creating a new one instead.");
+      }
+      const poses = {};
+      data.forEach((row) => {
+        poses[row.pose_id] = { url: row.image_url };
+      });
+      setCharacterPoses(poses);
+      setCustomCharacterId(character.id);
+      setChildName(character.name);
+      setFailedCustomPoses(POSES.map((p) => p.id).filter((id) => !poses[id]));
+    } catch (err) {
+      setCharacterError(err.message || "Something went wrong loading that character.");
     } finally {
       setGeneratingCharacter(false);
     }
@@ -244,7 +303,7 @@ export default function PremiumBuilder() {
       const scenes = story.pages.map((p) => {
         const poseId = characterPoses[p.pose] ? p.pose : "neutral"; // fall back if that pose failed to generate
         const sceneCharacters = [
-          { label: childName || "main character", base64: characterPoses[poseId].base64 },
+          { label: childName || "main character", url: characterPoses[poseId].url },
         ];
         const supportingUrl = supportingPoseUrlByPoseId[p.pose] || supportingPoseUrlByPoseId.neutral;
         if (supportingUrl) {
@@ -302,6 +361,9 @@ export default function PremiumBuilder() {
     }
   }
 
+  if (session === undefined) return null; // still checking auth
+  if (session === null) return null; // redirecting to /login
+
   return (
     <>
       <Head>
@@ -319,96 +381,177 @@ export default function PremiumBuilder() {
         </header>
 
         <div className="mx-auto max-w-3xl px-6 pb-24">
-          {/* STEP 1: PHOTO + CHARACTER */}
+          {/* STEP 1: CHARACTER — create new (descriptive traits, no photo)
+              or import a previously-created one from this account */}
           {step === 1 && (
             <div>
-              <h1 className="font-display text-3xl">Turn your child into the hero</h1>
+              <h1 className="font-display text-3xl">Bring your child's character to life</h1>
               <p className="mt-2 font-body text-charcoal/70">
-                Upload a clear, front-facing photo. We'll turn it into a semi-realistic illustrated character in
-                our storybook style — the original photo isn't kept once the character is generated.
+                Describe your child and we'll illustrate a character just for them — no photo needed or accepted.
+                Once created, this character is saved to your account only and yours to reuse in future books.
               </p>
 
-              <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                <div>
-                  <label className="block font-body font-semibold">Child's photo</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    className="mt-2 block w-full font-body text-sm"
-                  />
-                  {photoPreview && (
-                    <img src={photoPreview} alt="Uploaded preview" className="mt-4 h-40 w-40 rounded-cloth object-cover" />
-                  )}
-                </div>
-                <div>
-                  <label className="block font-body font-semibold">Child's first name</label>
-                  <input
-                    value={childName}
-                    onChange={(e) => setChildName(e.target.value)}
-                    placeholder="e.g. Amaka"
-                    className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
-                  />
-                  <label className="mt-4 block font-body font-semibold">Age</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="14"
-                    value={childAge}
-                    onChange={(e) => setChildAge(e.target.value)}
-                    className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
-                  />
-                  <label className="mt-4 block font-body font-semibold">Gender</label>
-                  <select
-                    value={childGender}
-                    onChange={(e) => setChildGender(e.target.value)}
-                    className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
-                  >
-                    <option value="female">Girl</option>
-                    <option value="male">Boy</option>
-                  </select>
-                </div>
-              </div>
-
-              <label className="mt-6 block font-body font-semibold">Illustration style</label>
-              <p className="mt-1 font-body text-xs text-charcoal/50">
-                Choose before generating — the character's style is locked in across all 6 poses once created,
-                the same way their face and outfit are.
-              </p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {Object.values(STYLES).map((s) => (
+              {savedCharacters.length > 0 && (
+                <div className="mt-6 flex gap-2 rounded-cloth bg-indigo_night/5 p-1">
                   <button
-                    key={s.id}
-                    onClick={() => setStyleId(s.id)}
-                    className={`rounded-cloth border-2 p-3 text-left font-body ${
-                      styleId === s.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                    onClick={() => setCharacterMode("create")}
+                    className={`flex-1 rounded-cloth py-2 font-body font-semibold ${
+                      characterMode === "create" ? "bg-white shadow-sm" : "text-charcoal/60"
                     }`}
                   >
-                    <p className="font-bold">{s.label}</p>
-                    <p className="text-xs text-charcoal/50">{s.description}</p>
+                    Create a new character
                   </button>
-                ))}
-              </div>
+                  <button
+                    onClick={() => setCharacterMode("import")}
+                    className={`flex-1 rounded-cloth py-2 font-body font-semibold ${
+                      characterMode === "import" ? "bg-white shadow-sm" : "text-charcoal/60"
+                    }`}
+                  >
+                    Use a saved character
+                  </button>
+                </div>
+              )}
 
-              <button
-                onClick={handleGenerateCharacter}
-                disabled={generatingCharacter || !photoFile}
-                className="mt-6 rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
-              >
-                {generatingCharacter ? "Creating character in every pose…" : "Generate character"}
-              </button>
-              {generatingCharacter && (
-                <p className="mt-2 font-body text-xs text-charcoal/50">
-                  Generating {childName || "your child"} in all 6 story poses at once — this takes a bit longer than
-                  one image, but means every page of the book uses the exact same art, never a fresh redraw.
-                </p>
+              {characterMode === "import" && savedCharacters.length > 0 ? (
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {savedCharacters.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleImportCharacter(c)}
+                      disabled={generatingCharacter}
+                      className={`rounded-cloth border-2 p-4 text-left font-body disabled:opacity-50 ${
+                        customCharacterId === c.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15 bg-white"
+                      }`}
+                    >
+                      <p className="font-bold">{c.name}</p>
+                      <p className="text-xs text-charcoal/50">
+                        {c.ethnicity}
+                        {c.age ? ` · age ${c.age}` : ""}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="mt-6 grid gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block font-body font-semibold">Child's first name</label>
+                      <input
+                        value={childName}
+                        onChange={(e) => setChildName(e.target.value)}
+                        placeholder="e.g. Amaka"
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      />
+                      <label className="mt-4 block font-body font-semibold">Age</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="14"
+                        value={childAge}
+                        onChange={(e) => setChildAge(e.target.value)}
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      />
+                      <label className="mt-4 block font-body font-semibold">Gender</label>
+                      <select
+                        value={childGender}
+                        onChange={(e) => setChildGender(e.target.value)}
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      >
+                        <option value="female">Girl</option>
+                        <option value="male">Boy</option>
+                      </select>
+                      <label className="mt-4 block font-body font-semibold">Ethnicity</label>
+                      <input
+                        value={childEthnicity}
+                        onChange={(e) => setChildEthnicity(e.target.value)}
+                        placeholder="e.g. Yoruba, Igbo, Hausa"
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-body font-semibold">
+                        Hair <span className="font-normal text-charcoal/50">(style + color)</span>
+                      </label>
+                      <input
+                        value={childHair}
+                        onChange={(e) => setChildHair(e.target.value)}
+                        placeholder="e.g. short curly black hair"
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      />
+                      <label className="mt-4 block font-body font-semibold">Skin tone</label>
+                      <input
+                        value={childSkinTone}
+                        onChange={(e) => setChildSkinTone(e.target.value)}
+                        placeholder="e.g. deep brown"
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      />
+                      <label className="mt-4 block font-body font-semibold">Eye color</label>
+                      <input
+                        value={childEyeColor}
+                        onChange={(e) => setChildEyeColor(e.target.value)}
+                        placeholder="e.g. dark brown"
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      />
+                      <label className="mt-4 block font-body font-semibold">Favorite outfit or color</label>
+                      <input
+                        value={childOutfit}
+                        onChange={(e) => setChildOutfit(e.target.value)}
+                        placeholder="e.g. a yellow ankara dress"
+                        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      />
+                    </div>
+                  </div>
+
+                  <label className="mt-4 block font-body font-semibold">Personality in a word or two</label>
+                  <input
+                    value={childPersonality}
+                    onChange={(e) => setChildPersonality(e.target.value)}
+                    placeholder="e.g. curious and brave"
+                    className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  />
+
+                  <label className="mt-6 block font-body font-semibold">Illustration style</label>
+                  <p className="mt-1 font-body text-xs text-charcoal/50">
+                    Choose before generating — the character's style is locked in across all 6 poses once created,
+                    the same way their face and outfit are.
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {Object.values(STYLES).map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setStyleId(s.id)}
+                        className={`rounded-cloth border-2 p-3 text-left font-body ${
+                          styleId === s.id ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                        }`}
+                      >
+                        <p className="font-bold">{s.label}</p>
+                        <p className="text-xs text-charcoal/50">{s.description}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleGenerateCharacter}
+                    disabled={generatingCharacter || !childName.trim() || !childEthnicity.trim()}
+                    className="mt-6 rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
+                  >
+                    {generatingCharacter ? "Creating character in every pose…" : "Generate character"}
+                  </button>
+                  {generatingCharacter && (
+                    <p className="mt-2 font-body text-xs text-charcoal/50">
+                      Generating {childName || "your child"} in all 6 story poses at once — this takes a bit longer
+                      than one image, but means every page of the book uses the exact same art, never a fresh
+                      redraw.
+                    </p>
+                  )}
+                </>
               )}
               {characterError && <p className="mt-2 font-body text-sm text-coral_ember">{characterError}</p>}
 
               {characterPoses && (
                 <div className="mt-6 rounded-cloth bg-white p-6 text-center shadow-sm">
                   <img
-                    src={`data:image/png;base64,${characterPoses.neutral.base64}`}
+                    src={characterPoses.neutral.url}
                     alt={`${childName}'s illustrated character`}
                     className="mx-auto h-48 w-48 rounded-cloth object-contain"
                   />
@@ -417,7 +560,7 @@ export default function PremiumBuilder() {
                       characterPoses[p.id] ? (
                         <img
                           key={p.id}
-                          src={`data:image/png;base64,${characterPoses[p.id].base64}`}
+                          src={characterPoses[p.id].url}
                           alt={p.label}
                           title={p.label}
                           className="h-12 w-12 rounded-cloth object-contain"

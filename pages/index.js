@@ -2,27 +2,56 @@ import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { characters } from "@/data/characters";
+import { colorThemes } from "@/data/colorThemes";
 
-const HERO_SLOT_COUNT = 2;
-const HERO_ROTATE_MS = 7000;
+const HERO_BOOK_ROTATE_MS = 4000;
 
-// Cycles through the character list two at a time, on a timer — replaces
-// an earlier version that continuously slid 3 characters across the
-// screen, which read as a UI ticker rather than calm background art. A
-// slow crossfade of 2 reads much more like ambient texture.
-function useRotatingCharacters(list, count, intervalMs) {
-  const [startIndex, setStartIndex] = useState(0);
+// A small illustrated book — drawn in SVG, not a photo, specifically so
+// there's no external image licensing/hotlinking risk for a live
+// marketing page and so it can cycle through the site's own color themes
+// for a genuinely "changing, colourful" effect. Alternates between a
+// hardcover look (sharp spine highlight, thick page edge) and a softcover
+// look (rounded, no spine highlight, thinner) each time it advances, on
+// top of cycling the color theme itself.
+function useRotatingBook(themes, intervalMs) {
+  const [index, setIndex] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => {
-      setStartIndex((i) => (i + count) % list.length);
-    }, intervalMs);
+    const id = setInterval(() => setIndex((i) => i + 1), intervalMs);
     return () => clearInterval(id);
-  }, [list.length, count, intervalMs]);
-  const visible = [];
-  for (let i = 0; i < count; i++) {
-    visible.push(list[(startIndex + i) % list.length]);
-  }
-  return visible;
+  }, [intervalMs]);
+  const theme = themes[index % themes.length];
+  const isHardcover = index % 2 === 0;
+  return { theme, isHardcover, key: `${theme.id}-${isHardcover}` };
+}
+
+function HeroBook({ theme, isHardcover }) {
+  return (
+    <svg viewBox="0 0 240 320" className="h-full w-full drop-shadow-2xl">
+      {/* back cover peeking out, for depth */}
+      <rect x="26" y="18" width="150" height="288" rx={isHardcover ? 14 : 22} fill={theme.accent} opacity="0.45" />
+      {/* page edge, suggesting thickness */}
+      <rect x="150" y="14" width={isHardcover ? 16 : 9} height="284" rx="3" fill="#ffffff" opacity="0.92" />
+      {/* front cover */}
+      <rect
+        x="14"
+        y="10"
+        width="146"
+        height="290"
+        rx={isHardcover ? 14 : 24}
+        fill={theme.bg}
+        stroke={theme.accent}
+        strokeWidth={isHardcover ? 5 : 3}
+      />
+      {/* spine highlight — hardcover only; a softcover book doesn't have this stiff a spine */}
+      {isHardcover && <rect x="14" y="10" width="16" height="290" rx="10" fill={theme.accent} />}
+      {/* simple decorative title lines */}
+      <rect x="48" y="70" width="90" height="9" rx="4.5" fill={theme.text} opacity="0.55" />
+      <rect x="48" y="92" width="60" height="9" rx="4.5" fill={theme.text} opacity="0.35" />
+      {/* a small accent "star" motif, standing in for cover art */}
+      <circle cx="87" cy="190" r="34" fill={theme.accent} opacity="0.9" />
+      <circle cx="87" cy="190" r="34" fill="none" stroke={theme.bg} strokeWidth="3" opacity="0.6" />
+    </svg>
+  );
 }
 
 const steps = [
@@ -43,7 +72,7 @@ const sampleCharacters = characters.filter((c) =>
 
 export default function Home() {
   const [libraryImages, setLibraryImages] = useState({});
-  const heroCharacters = useRotatingCharacters(characters, HERO_SLOT_COUNT, HERO_ROTATE_MS);
+  const heroBook = useRotatingBook(colorThemes, HERO_BOOK_ROTATE_MS);
 
   useEffect(() => {
     fetch("/api/library-characters")
@@ -82,59 +111,43 @@ export default function Home() {
           </div>
 
           <div className="relative overflow-hidden">
-            {/* Ambient background: 2 character portraits at a time, at low
-                opacity, crossfading to a new pair every few seconds — an
-                earlier version continuously slid 3 across the screen, which
-                read as a UI ticker rather than calm background art. Reuses
-                the same .animate-fade-in keyframe already used for the
-                generation-progress modal's rotating facts, keyed by
-                character id so React remounts (and re-plays the fade) each
-                time the pair changes. object-contain (not object-cover) is
-                deliberate — it's mathematically impossible for it to crop
-                any part of the character, a real reported bug with the
-                cover-based version. Uses only already-cached images (see
-                /api/library-characters, a pure cache read); a marketing
-                page with anonymous, often bot/crawler traffic is the wrong
-                place to spend real image-API money warming a cache. */}
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="flex h-full">
-                {heroCharacters.map((c) => (
-                  <div key={c.id} className="h-full w-1/2 animate-fade-in-slow opacity-[0.16]">
-                    {libraryImages[c.id] ? (
-                      <img src={libraryImages[c.id]} alt="" className="h-full w-full object-contain object-top" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-ivory_cloth/5">
-                        <span className="font-display text-9xl text-ivory_cloth">{c.name[0]}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+            <div className="relative z-10 mx-auto grid max-w-5xl gap-10 px-6 pb-20 pt-10 md:grid-cols-2 md:items-center md:pt-16">
+              <div>
+                <h1 className="mt-4 max-w-2xl font-display text-4xl leading-[1.1] md:text-6xl">
+                  A real, illustrated storybook — starring your child — ready before bedtime.
+                </h1>
+                <p className="mt-6 max-w-md font-body text-lg text-ivory_cloth/85">
+                  Pick a character or upload their photo, add a few details, and get a finished, downloadable
+                  storybook in minutes — not a template, a real book made just for them.
+                </p>
+                <div className="mt-8 flex flex-wrap gap-4">
+                  <Link
+                    href="/characters"
+                    className="rounded-cloth bg-coral_ember px-7 py-3 font-body font-bold text-white transition hover:bg-coral_ember/90"
+                  >
+                    Create Their Storybook Now
+                  </Link>
+                  <a
+                    href="#how-it-works"
+                    className="rounded-cloth border border-ivory_cloth/40 px-7 py-3 font-body font-semibold text-ivory_cloth"
+                  >
+                    See how it works
+                  </a>
+                </div>
+              </div>
+
+              {/* The book itself — drawn in SVG (see HeroBook above), not a
+                  photo, cycling through the site's own color themes and
+                  alternating hardcover/softcover shape every few seconds
+                  for a "changing, colourful" effect without any external
+                  image licensing or hotlinking risk. Hidden below md so it
+                  doesn't compete with the text on narrow screens. */}
+              <div className="hidden justify-center md:flex">
+                <div key={heroBook.key} className="w-48 animate-fade-in-slow lg:w-56">
+                  <HeroBook theme={heroBook.theme} isHardcover={heroBook.isHardcover} />
+                </div>
               </div>
             </div>
-
-            <div className="relative z-10 mx-auto max-w-5xl px-6 pb-20 pt-10 md:pt-16">
-              <h1 className="mt-4 max-w-2xl font-display text-4xl leading-[1.1] md:text-6xl">
-                A real, illustrated storybook — starring your child — ready before bedtime.
-              </h1>
-              <p className="mt-6 max-w-md font-body text-lg text-ivory_cloth/85">
-                Pick a character or upload their photo, add a few details, and get a finished, downloadable
-                storybook in minutes — not a template, a real book made just for them.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href="/characters"
-                className="rounded-cloth bg-coral_ember px-7 py-3 font-body font-bold text-white transition hover:bg-coral_ember/90"
-              >
-                Create Their Storybook Now
-              </Link>
-              <a
-                href="#how-it-works"
-                className="rounded-cloth border border-ivory_cloth/40 px-7 py-3 font-body font-semibold text-ivory_cloth"
-              >
-                See how it works
-              </a>
-            </div>
-          </div>
           </div>
 
           <div className="relative z-10 cloth-trim" />

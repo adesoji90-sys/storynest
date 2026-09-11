@@ -183,24 +183,29 @@ create policy "Service role can upload story settings"
   on storage.objects for insert
   with check (bucket_id = 'story-settings');
 
--- Premium tier: storage bucket for generated cartoon characters.
--- NOTE: only the generated cartoon is ever stored here — the original
--- uploaded child photo is never written to Supabase (see README, Premium
--- tier privacy notes). Public read is fine since these are stylized
--- illustrations, not photos of the child.
+-- Premium tier: storage bucket for generated custom characters.
+-- CHANGED from public to private: custom characters are now explicitly
+-- scoped to "creator's account only" (see custom_characters/
+-- custom_character_poses above) — leaving the underlying image files in a
+-- public bucket would be a real inconsistency with that, since anyone
+-- holding a URL could view them regardless of account. Access is now via
+-- signed URLs issued by /api/generate-custom-character.js and
+-- /api/my-custom-characters.js, the same pattern already used for
+-- story-pdfs and story-pages.
+--
+-- If you ran this schema when the bucket was still public, this line
+-- flips it — safe to run even if it's already private.
 insert into storage.buckets (id, name, public)
-values ('custom-characters', 'custom-characters', true)
-on conflict (id) do nothing;
+values ('custom-characters', 'custom-characters', false)
+on conflict (id) do update set public = false;
 
+-- No public or authenticated-user storage.objects policy on purpose,
+-- same reasoning as story-pdfs — the service-role key (server-side only)
+-- bypasses RLS, which is the only way in. The old "Public can view custom
+-- characters" / "Service role can upload custom characters" policies are
+-- dropped, not replaced, since a private bucket needs neither.
 drop policy if exists "Public can view custom characters" on storage.objects;
-create policy "Public can view custom characters"
-  on storage.objects for select
-  using (bucket_id = 'custom-characters');
-
 drop policy if exists "Service role can upload custom characters" on storage.objects;
-create policy "Service role can upload custom characters"
-  on storage.objects for insert
-  with check (bucket_id = 'custom-characters');
 
 -- Library characters: each of the 30 built-in characters gets a small,
 -- FIXED set of pose variants (see lib/characterPoses.js — neutral, happy,
@@ -276,3 +281,73 @@ on conflict (id) do nothing;
 insert into storage.buckets (id, name, public)
 values ('story-pages', 'story-pages', false)
 on conflict (id) do nothing;
+
+-- Premium tier no longer accepts an uploaded photo of a child — see the
+-- README section "Premium tier: character generator replaces photo
+-- upload" for why (a real, confirmed content-policy restriction on
+-- processing photos of minors, found while evaluating alternative image
+-- providers — this removes the exposure permanently, regardless of which
+-- image provider is used, rather than working around it for one provider
+-- at a time). Premium characters are now built from parent-supplied
+-- descriptive traits (skin tone, hair, eye color, favorite outfit,
+-- personality) via text-to-image, the same technique already used for the
+-- 30 library characters — just parent-authored instead of pre-written by
+-- us, and private to the creating account instead of shared publicly.
+--
+-- This requires an account: a "character tied to your account only" has
+-- nowhere to live for a guest checkout. Premium tier now requires login,
+-- a real change from before ("guest checkout works fully" applied to
+-- both tiers previously — it's Basic-tier only now).
+create table if not exists public.custom_characters (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  name text not null,
+  age int,
+  gender text,
+  ethnicity text,
+  description text, -- combined parent-supplied traits: hair, skin tone, eye color, favorite outfit/color, personality
+  created_at timestamptz default now()
+);
+
+alter table public.custom_characters enable row level security;
+
+drop policy if exists "Users can view their own custom characters" on public.custom_characters;
+create policy "Users can view their own custom characters"
+  on public.custom_characters for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own custom characters" on public.custom_characters;
+create policy "Users can insert their own custom characters"
+  on public.custom_characters for insert
+  with check (auth.uid() = user_id);
+
+-- Mirrors library_character_poses's structure (see above) but scoped to
+-- ONE user's private character instead of the shared 30-character
+-- library. No style_id needed in isolation here the way the library
+-- table has it as part of a shared cache key — a custom character's
+-- style is fixed at creation time and never regenerated in another
+-- style, so style_id is stored for reference but isn't part of what
+-- makes a row unique.
+create table if not exists public.custom_character_poses (
+  custom_character_id uuid not null references public.custom_characters(id) on delete cascade,
+  pose_id text not null,
+  style_id text not null default 'painterly',
+  image_url text,
+  updated_at timestamptz default now(),
+  primary key (custom_character_id, pose_id)
+);
+
+alter table public.custom_character_poses enable row level security;
+
+-- No user_id column directly on this table — ownership is checked via a
+-- join back to custom_characters, which does have one.
+drop policy if exists "Users can view poses of their own custom characters" on public.custom_character_poses;
+create policy "Users can view poses of their own custom characters"
+  on public.custom_character_poses for select
+  using (
+    exists (
+      select 1 from public.custom_characters cc
+      where cc.id = custom_character_poses.custom_character_id
+      and cc.user_id = auth.uid()
+    )
+  );
