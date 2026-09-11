@@ -121,14 +121,17 @@ export default function ReadingMode() {
           )}
         </div>
 
-        {/* Deliberately small and low-key, not a prominent button — a
-            young child shouldn't be drawn to tap it out of curiosity the
-            way a big "Exit" button would invite. */}
+        {/* Muted, not colorful or animated, so it doesn't invite a young
+            child's curiosity — but a real button (icon + border), not
+            near-invisible text, so a parent scanning the screen can
+            actually find it. The lock icon is a deliberate, recognizable
+            signal: several real kids' apps use the same "small padlock
+            in the corner" convention for exactly this purpose. */}
         <button
           onClick={() => setShowExitGate(true)}
-          className="fixed bottom-4 right-4 font-body text-xs text-charcoal/30"
+          className="fixed bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-charcoal/20 bg-white px-3 py-2 font-body text-sm text-charcoal/60 shadow-sm"
         >
-          Parent exit
+          🔒 Parent exit
         </button>
       </main>
 
