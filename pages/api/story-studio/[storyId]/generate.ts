@@ -130,7 +130,7 @@ Write the full story now as JSON, following the system instructions exactly.
     // every AI operation; Story Studio has a real familyId to attribute
     // it to (unlike admin content generation — see that route's
     // comment for why it can't do the same yet).
-    await prisma.aiUsageRecord.create({
+    await prisma.aIUsageRecord.create({
       data: {
         familyId: auth.familyId,
         userId: auth.userId,
