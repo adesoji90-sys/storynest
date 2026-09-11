@@ -103,6 +103,7 @@ export default function Family() {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [assignmentsByChild, setAssignmentsByChild] = useState({}); // childId -> assignment[]
 
   useEffect(() => {
     async function checkSession() {
@@ -124,6 +125,18 @@ export default function Family() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't load your family.");
       setChildren(data.children);
+
+      const map = {};
+      await Promise.all(
+        data.children.map(async (child) => {
+          const r = await fetch(`/api/assignments?childId=${child.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const d = await r.json();
+          map[child.id] = d.assignments || [];
+        })
+      );
+      setAssignmentsByChild(map);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -205,7 +218,10 @@ export default function Family() {
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
           <Link href="/" className="font-display text-xl">StoryNest</Link>
-          <Link href="/account" className="font-body text-sm text-charcoal/60">My Library →</Link>
+          <div className="flex items-center gap-5">
+            <Link href="/library" className="font-body text-sm text-charcoal/60">Library</Link>
+            <Link href="/account" className="font-body text-sm text-charcoal/60">My Library →</Link>
+          </div>
         </header>
 
         <div className="mx-auto max-w-3xl px-6 pb-24">
@@ -232,30 +248,54 @@ export default function Family() {
                         onSave={(payload) => handleUpdate(child.id, payload)}
                       />
                     ) : (
-                      <div className="flex items-center justify-between rounded-cloth bg-white p-5 shadow-sm">
-                        <div>
-                          <p className="font-body font-bold">
-                            {child.name}
-                            {age !== null && <span className="font-normal text-charcoal/50"> · age {age}</span>}
-                          </p>
-                          <p className="mt-1 font-body text-sm text-charcoal/60">
-                            {child.readingLevel || "Reading level not set"}
-                            {child.interests?.length > 0 && ` · ${child.interests.join(", ")}`}
-                          </p>
+                      <div className="rounded-cloth bg-white p-5 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-body font-bold">
+                              {child.name}
+                              {age !== null && <span className="font-normal text-charcoal/50"> · age {age}</span>}
+                            </p>
+                            <p className="mt-1 font-body text-sm text-charcoal/60">
+                              {child.readingLevel || "Reading level not set"}
+                              {child.interests?.length > 0 && ` · ${child.interests.join(", ")}`}
+                            </p>
+                          </div>
+                          <div className="flex gap-4">
+                            <button
+                              onClick={() => setEditingId(child.id)}
+                              className="font-body text-sm font-semibold text-coral_ember"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleRemove(child.id, child.name)}
+                              className="font-body text-sm text-charcoal/40"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex gap-4">
-                          <button
-                            onClick={() => setEditingId(child.id)}
-                            className="font-body text-sm font-semibold text-coral_ember"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleRemove(child.id, child.name)}
-                            className="font-body text-sm text-charcoal/40"
-                          >
-                            Remove
-                          </button>
+
+                        <div className="mt-4 border-t border-charcoal/10 pt-3">
+                          {(assignmentsByChild[child.id] || []).length === 0 ? (
+                            <p className="font-body text-sm text-charcoal/50">
+                              No books assigned yet —{" "}
+                              <Link href="/library" className="font-semibold text-coral_ember">browse the library</Link>.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {assignmentsByChild[child.id].map((a) => (
+                                <Link
+                                  key={a.id}
+                                  href={`/read/${a.book.id}?childId=${child.id}`}
+                                  className="flex items-center justify-between rounded-cloth px-2 py-1.5 font-body text-sm hover:bg-ivory_cloth"
+                                >
+                                  <span>{a.book.title}</span>
+                                  <span className="text-coral_ember">Read →</span>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
