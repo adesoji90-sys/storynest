@@ -76,15 +76,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : [];
       const progressByBookId = Object.fromEntries(progressRows.map((p: { bookId: string }) => [p.bookId, p]));
 
-      const withProgress = assignments.map((a: { bookId: string }) => ({
-        ...a,
-        progress: progressByBookId[a.bookId]
-          ? {
-              percentage: progressByBookId[a.bookId].percentage,
-              completedAt: progressByBookId[a.bookId].completedAt,
-            }
-          : null,
-      }));
+      const withProgress = assignments.map((a: { bookId: string }) => {
+        const p = progressByBookId[a.bookId];
+        return {
+          ...a,
+          progress: p ? { percentage: p.percentage, completedAt: p.completedAt } : null,
+        };
+      });
 
       return res.status(200).json({ assignments: withProgress });
     } catch (err) {
