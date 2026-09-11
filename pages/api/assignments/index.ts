@@ -70,13 +70,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // caller gets "how far has this child gotten" alongside "what's
       // assigned" in one response, without the client needing a second
       // round-trip per book.
-      const bookIds = assignments.map((a: { bookId: string }) => a.bookId);
+      const bookIds = assignments.map((a: any) => a.bookId);
       const progressRows = bookIds.length
         ? await prisma.readingProgress.findMany({ where: { childId, bookId: { in: bookIds } } })
         : [];
-      const progressByBookId = Object.fromEntries(progressRows.map((p: { bookId: string }) => [p.bookId, p]));
+      const progressByBookId = Object.fromEntries(progressRows.map((p: any) => [p.bookId, p]));
 
-      const withProgress = assignments.map((a: { bookId: string }) => {
+      const withProgress = assignments.map((a: any) => {
         const p = progressByBookId[a.bookId];
         return {
           ...a,
