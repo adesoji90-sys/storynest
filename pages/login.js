@@ -78,7 +78,25 @@ export default function Login() {
       options: { emailRedirectTo: redirectUrl(redirectPath) },
     });
     setSending(false);
-    if (err) return setError(err.message || "Couldn't create the account — try again.");
+    if (err) {
+      // Supabase's current signUp behavior returns an explicit
+      // "User already registered" error for this case (confirmed against
+      // their own reference docs — older guides describing an obfuscated
+      // non-error response are out of date). Surfacing this on SIGNUP
+      // specifically is a deliberate, different choice from sign-in
+      // above: telling someone "you already have an account" during
+      // signup is a near-universal, low-stakes UX pattern, not the same
+      // enumeration risk as revealing account existence during a failed
+      // login attempt — which is why sign-in above stays deliberately
+      // generic while this doesn't.
+      if (/already registered|already exists/i.test(err.message || "")) {
+        setError("An account with this email already exists — try signing in instead, or use \"Forgot password?\" if you don't remember it.");
+        setAction("signin");
+        return;
+      }
+      setError(err.message || "Couldn't create the account — try again.");
+      return;
+    }
     setSent("signup");
   }
 

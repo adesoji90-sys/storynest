@@ -104,7 +104,10 @@ export default function Account() {
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
           <Link href="/" className="font-display text-xl">StoryNest</Link>
-          <button onClick={handleLogout} className="font-body text-sm text-charcoal/60">Log out</button>
+          <div className="flex items-center gap-5">
+            <Link href="/family" className="font-body text-sm text-charcoal/60">Your family</Link>
+            <button onClick={handleLogout} className="font-body text-sm text-charcoal/60">Log out</button>
+          </div>
         </header>
 
         <div className="mx-auto max-w-3xl px-6 pb-24">
