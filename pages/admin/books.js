@@ -61,6 +61,7 @@ function emptyForm() {
   const [error, setError] = useState("");
   const [theme, setTheme] = useState("");
   const [mode, setMode] = useState(null); // null (undecided) | "manual" | "ai"
+  const [hasGenerated, setHasGenerated] = useState(false); // AI mode only — true once a draft exists to edit
   const [pageCount, setPageCount] = useState(10);
   const [generating, setGenerating] = useState(false);
 
@@ -147,6 +148,7 @@ function emptyForm() {
         category: data.category || f.category,
         lesson: data.lesson || f.lesson,
       }));
+      setHasGenerated(true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -183,6 +185,7 @@ function emptyForm() {
       setForm(emptyForm());
       setMode(null);
       setTheme("");
+      setHasGenerated(false);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -251,7 +254,10 @@ function emptyForm() {
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setMode("manual")}
+                onClick={() => {
+                  setMode("manual");
+                  setHasGenerated(false);
+                }}
                 className={`rounded-cloth border-2 p-4 text-left font-body ${
                   mode === "manual" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
                 }`}
@@ -261,7 +267,10 @@ function emptyForm() {
               </button>
               <button
                 type="button"
-                onClick={() => setMode("ai")}
+                onClick={() => {
+                  setMode("ai");
+                  setHasGenerated(false);
+                }}
                 className={`rounded-cloth border-2 p-4 text-left font-body ${
                   mode === "ai" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
                 }`}
@@ -307,7 +316,7 @@ function emptyForm() {
               </div>
             )}
 
-            {mode && (
+            {(mode === "manual" || (mode === "ai" && hasGenerated)) && (
               <>
             <label className="mt-4 block font-body font-semibold">Title</label>
             <input
