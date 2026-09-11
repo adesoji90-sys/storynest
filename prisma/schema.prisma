@@ -1,0 +1,723 @@
+// Prisma schema for the rewrite of StoryNest into a full parent-controlled
+// reading platform (name TBD — see project README for current naming).
+//
+// STAYS ON SUPABASE (confirmed): this connects to the same Supabase
+// Postgres instance StoryNest already uses. Supabase Auth is KEPT, not
+// replaced with NextAuth or another provider — `User.id` below mirrors
+// `auth.users.id` exactly the way StoryNest's old `profiles` table did.
+// The brief asks for "a secure production-ready authentication system,"
+// not a specific provider; Supabase Auth already satisfies that, and
+// swapping it for something else would be pure migration risk with no
+// stated benefit.
+//
+// This is a REPLACEMENT of StoryNest's schema, not an additive extension
+// of it — confirmed with the product owner. StoryNest's existing tables
+// (profiles, stories, orders, characters, story_locations,
+// library_character_poses, custom_characters, custom_character_poses)
+// are NOT modeled here and are expected to be retired once the new
+// schema is live. Whether existing customer data needs a migration
+// script into the new tables is still an open question — flagged
+// separately, not assumed either way.
+//
+// Note @@map() is used throughout to keep snake_case table/column names
+// in Postgres (matching the SQL conventions StoryNest's schema.sql
+// already used) while Prisma's generated client uses idiomatic
+// camelCase — this is a naming-convention bridge, not a semantic choice.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  // Prisma 7.10.0 REMOVED `url`/`directUrl` from schema files entirely —
+  // not just deprecated, a hard validation error now (confirmed directly
+  // from this exact version's own error output). The connection URL for
+  // Migrate lives in prisma.config.ts instead (already pointing at
+  // DIRECT_URL there). The RUNNING APP will need a `PrismaClient`
+  // instantiated with an explicit `adapter` (e.g. @prisma/adapter-pg)
+  // pointed at the pooled DATABASE_URL, in actual application code —
+  // that's a real, required piece of work for Step 3 onward, not
+  // optional cleanup.
+  //
+  // `auth` is Supabase's own schema (auth.users, etc.) — not modeled
+  // here at all, but StoryNest's EXISTING `public.profiles` table has a
+  // real foreign key into it (profiles.id -> auth.users.id), and
+  // Prisma's migration engine scans the whole database, not just what's
+  // declared in this file. Without `auth` listed here, that pre-existing
+  // constraint makes every `prisma migrate` command fail with P4002,
+  // regardless of whether this schema itself references auth.* at all.
+  schemas  = ["public", "auth"]
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACCOUNTS & FAMILIES (Section 2 — Principle 1: parent-owned family)
+// ─────────────────────────────────────────────────────────────
+
+// Extends Supabase's own `auth.users` table — same pattern as StoryNest's
+// current `profiles` table. This table does NOT create or manage
+// passwords/sessions itself; Supabase Auth still owns that entirely.
+model User {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  fullName  String?  @map("full_name")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  familyMemberships FamilyMember[]
+  adminUser         AdminUser?
+  storyVersions     StoryVersion[] @relation("StoryVersionAuthor")
+  bookAssignments   BookAssignment[] @relation("AssignedByUser")
+  aiUsageRecords    AIUsageRecord[]
+
+  // Deliberately NOT mapped to "users" — Supabase's own auth.users table
+  // has that exact name, and having two tables named "users" (one per
+  // schema) creates dangerous ambiguity for the "externally managed
+  // tables" mechanism that protects auth.* from Prisma Migrate. Naming
+  // this distinctly removes any doubt about which "users" a config
+  // reference means.
+  @@map("app_users")
+  @@schema("public")
+}
+
+model Family {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members         FamilyMember[]
+  children        Child[]
+  subscription    Subscription?
+  entitlement     Entitlement?
+  books           Book[]
+  characterBibles CharacterBible[]
+  stories         Story[]
+  generationJobs  GenerationJob[]
+  aiUsageRecords  AIUsageRecord[]
+
+  @@map("families")
+  @@schema("public")
+}
+
+// Multiple adults per family is explicitly designed for (Section 2 says
+// "the parent/family account is the primary account," not "one parent
+// per family") even though the MVP UI will likely only ever create one
+// OWNER at signup — no schema change needed later to add a second
+// guardian.
+model FamilyMember {
+  id       String     @id @default(uuid()) @db.Uuid
+  familyId String     @map("family_id") @db.Uuid
+  userId   String     @map("user_id") @db.Uuid
+  role     FamilyRole @default(OWNER)
+  joinedAt DateTime   @default(now()) @map("joined_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  @@map("family_members")
+  @@schema("public")
+}
+
+enum FamilyRole {
+  OWNER
+  GUARDIAN
+  @@schema("public")
+}
+
+// Section 2 — Principle 2: children belong to a family, not directly to
+// a subscription or a book. Fields match the brief's list exactly, with
+// two intentional flexibility choices: `interests` as a plain string
+// array (not a fixed enum — the brief says "controlled by subscription
+// entitlements rather than hard-coded," which is about child COUNT, but
+// the same "don't hard-code" instinct applies to an open-ended list like
+// interests) and `narrationPreferences`/`accessibilityPreferences` as
+// JSON, so new preference fields don't require a migration every time
+// one is added.
+model Child {
+  id                       String    @id @default(uuid()) @db.Uuid
+  familyId                 String    @map("family_id") @db.Uuid
+  name                     String
+  dateOfBirth              DateTime? @map("date_of_birth") @db.Date
+  avatarAssetId            String?   @map("avatar_asset_id") @db.Uuid
+  readingLevel             String?   @map("reading_level")
+  interests                String[]  @default([])
+  preferredLanguage        String    @default("en") @map("preferred_language")
+  secondaryLanguage        String?   @map("secondary_language")
+  narrationPreferences     Json?     @map("narration_preferences")
+  accessibilityPreferences Json?     @map("accessibility_preferences")
+  active                   Boolean   @default(true)
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  family          Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  avatarAsset     Asset?            @relation(fields: [avatarAssetId], references: [id])
+  bookAssignments BookAssignment[]
+  readingProgress ReadingProgress[]
+  readingSessions ReadingSession[]
+  stories         Story[]
+
+  @@map("children")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PLANS, SUBSCRIPTIONS, ENTITLEMENTS (Section 2 — Principle 4)
+// ─────────────────────────────────────────────────────────────
+
+// Plans are DATA, not code — an admin changes limits/pricing here
+// without a deploy. This is what Section 23 means by "do not hard-code
+// final prices yet" and Section 2 means by "the number of children is
+// controlled by subscription entitlements rather than hard-coded."
+model Plan {
+  id                   String           @id @default(uuid()) @db.Uuid
+  code                 String           @unique
+  name                 String
+  description          String?
+  maxChildren          Int              @map("max_children")
+  libraryAccess        Boolean          @default(true) @map("library_access")
+  customBooksAllowed   Boolean          @default(false) @map("custom_books_allowed")
+  customBookCredits    Int?             @map("custom_book_credits") // null = no separate cap beyond other plan limits
+  narrationAllowed     Boolean          @default(false) @map("narration_allowed")
+  premiumImagesAllowed Boolean          @default(false) @map("premium_images_allowed")
+  priceMinorUnits      Int              @map("price_minor_units") // kobo — see AIUsageRecord for why money is never a float here
+  currency             String           @default("NGN")
+  billingInterval      BillingInterval  @default(MONTHLY) @map("billing_interval")
+  active               Boolean          @default(true)
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+  @@schema("public")
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+  @@schema("public")
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  familyId               String             @unique @map("family_id") @db.Uuid
+  planId                 String             @map("plan_id") @db.Uuid
+  provider               String             @default("paystack")
+  providerCustomerId     String?            @map("provider_customer_id")
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  status                 SubscriptionStatus @default(NONE)
+  startDate              DateTime?          @map("start_date")
+  currentPeriodStart     DateTime?          @map("current_period_start")
+  currentPeriodEnd       DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  cancelledAt            DateTime?          @map("cancelled_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  family      Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  plan        Plan         @relation(fields: [planId], references: [id])
+  entitlement Entitlement?
+
+  @@map("subscriptions")
+  @@schema("public")
+}
+
+enum SubscriptionStatus {
+  NONE
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+  @@schema("public")
+}
+
+// The family's CURRENT, live allowance — deliberately its own row, not
+// something recomputed from Plan+Subscription on every request. This is
+// what Section 2 means by "never delete a family's books, children,
+// history or reading progress simply because a subscription expires. On
+// expiry, restrict access according to the plan. When the subscription
+// becomes active again, restore appropriate access" — the underlying
+// data (Child, Book, ReadingProgress rows) is never touched by a
+// subscription lapsing; only what THIS row currently allows changes.
+model Entitlement {
+  id                     String    @id @default(uuid()) @db.Uuid
+  familyId               String    @unique @map("family_id") @db.Uuid
+  subscriptionId         String?   @unique @map("subscription_id") @db.Uuid
+  maxChildren            Int       @map("max_children")
+  libraryAccess          Boolean   @map("library_access")
+  customBooksAllowed     Boolean   @map("custom_books_allowed")
+  customBookCreditsTotal Int?      @map("custom_book_credits_total")
+  customBookCreditsUsed  Int       @default(0) @map("custom_book_credits_used")
+  narrationAllowed       Boolean   @map("narration_allowed")
+  premiumImagesAllowed   Boolean   @map("premium_images_allowed")
+  periodResetsAt         DateTime? @map("period_resets_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  family       Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@map("entitlements")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ASSETS (Section 3 — S3-compatible storage; nothing binary lives in Postgres)
+// ─────────────────────────────────────────────────────────────
+
+// Stores a storage KEY, never a signed URL — URLs are generated on
+// demand and expire, matching how StoryNest's private buckets already
+// work (story-pages, story-pdfs, custom-characters). `bucket` is
+// explicit rather than assumed, since different asset kinds may live in
+// different buckets (illustrations vs. audio vs. PDFs).
+model Asset {
+  id         String    @id @default(uuid()) @db.Uuid
+  kind       AssetKind
+  bucket     String
+  storageKey String    @map("storage_key")
+  mimeType   String?   @map("mime_type")
+  width      Int?
+  height     Int?
+  durationMs Int?      @map("duration_ms") // audio assets only
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  childAvatarFor           Child[]
+  bookCovers                Book[]
+  pageIllustrations         Page[]                    @relation("PageIllustration")
+  pageNarrations            Page[]                    @relation("PageNarration")
+  characterReferenceAssets  CharacterReferenceAsset[]
+
+  @@map("assets")
+  @@schema("public")
+}
+
+enum AssetKind {
+  ILLUSTRATION
+  COVER
+  AUDIO
+  PDF
+  CHARACTER_REFERENCE
+  AVATAR
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CHARACTER BIBLE (Section 11)
+// ─────────────────────────────────────────────────────────────
+
+// Unifies what were StoryNest's two separate tables
+// (library_character_poses for the shared 30, custom_character_poses for
+// one family's private character) into one model. `familyId = null`
+// means shared/curated (today's "library"); a set `familyId` means one
+// family's private character. This directly satisfies Section 11's
+// requirement that a character be reusable across multiple books (Tobi
+// in Book 1, 2, 3) for BOTH curated and custom characters, through the
+// same mechanism.
+model CharacterBible {
+  id                  String   @id @default(uuid()) @db.Uuid
+  familyId            String?  @map("family_id") @db.Uuid
+  name                String
+  age                 Int?
+  gender              String?
+  appearance          String?
+  skinTone            String?  @map("skin_tone")
+  hair                String?
+  clothing            String?
+  bodyCharacteristics String?  @map("body_characteristics")
+  personality         String?
+  culturalContext     String?  @map("cultural_context")
+  visualStyle         String   @default("painterly") @map("visual_style")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  family          Family?                   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  referenceAssets CharacterReferenceAsset[]
+  bookLinks       BookCharacter[]
+
+  @@map("character_bibles")
+  @@schema("public")
+}
+
+// One row per (character, pose) — the direct evolution of StoryNest's
+// pose-caching tables. A character's appearance in a given pose is
+// generated once and only ever selected from after that; this table is
+// the cache.
+model CharacterReferenceAsset {
+  id          String   @id @default(uuid()) @db.Uuid
+  characterId String   @map("character_id") @db.Uuid
+  poseId      String   @map("pose_id")
+  assetId     String   @map("asset_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  character CharacterBible @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  asset     Asset          @relation(fields: [assetId], references: [id])
+
+  @@unique([characterId, poseId])
+  @@map("character_reference_assets")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOOKS & PAGES (Sections 5–7)
+// ─────────────────────────────────────────────────────────────
+
+// `familyId = null` + `type = CURATED` is a shared library book. A set
+// `familyId` + `type = CUSTOM` is one family's personalized book. Both
+// go through the identical Story → StoryVersion → Page → GenerationJob
+// pipeline — an admin authoring a curated book and a parent authoring a
+// custom one are the same underlying flow, just who triggers it and
+// where it ends up (published to everyone vs. assigned to one child).
+model Book {
+  id              String     @id @default(uuid()) @db.Uuid
+  title           String
+  subtitle        String?
+  description     String?
+  ageRangeMin     Int?       @map("age_range_min")
+  ageRangeMax     Int?       @map("age_range_max")
+  readingLevel    String?    @map("reading_level")
+  language        String     @default("en")
+  category        String?
+  lesson          String?
+  coverAssetId    String?    @map("cover_asset_id") @db.Uuid
+  type            BookType
+  status          BookStatus @default(DRAFT)
+  familyId        String?    @map("family_id") @db.Uuid
+  createdByUserId String?    @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  coverAsset  Asset?           @relation(fields: [coverAssetId], references: [id])
+  family      Family?          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  pages       Page[]
+  characters  BookCharacter[]
+  assignments BookAssignment[]
+  story       Story?
+  generationJobs GenerationJob[]
+  aiUsageRecords AIUsageRecord[]
+  readingProgress ReadingProgress[]
+  readingSessions ReadingSession[]
+
+  @@map("books")
+  @@schema("public")
+}
+
+enum BookType {
+  CURATED
+  CUSTOM
+  @@schema("public")
+}
+
+enum BookStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+  ARCHIVED
+  @@schema("public")
+}
+
+// Independently addressable — Section 6's explicit, non-negotiable
+// requirement: regenerating page 7 must never touch pages 1–6 or 8–10.
+// `illustrationSpec` carries the structured prompt/pose/shot data (the
+// direct descendant of StoryNest's per-page {pose, location_id, shot,
+// illustration_prompt}).
+model Page {
+  id                  String     @id @default(uuid()) @db.Uuid
+  bookId              String     @map("book_id") @db.Uuid
+  pageNumber          Int        @map("page_number")
+  text                String?
+  illustrationAssetId String?    @map("illustration_asset_id") @db.Uuid
+  narrationAssetId    String?    @map("narration_asset_id") @db.Uuid
+  illustrationSpec    Json?      @map("illustration_spec")
+  status              PageStatus @default(PENDING)
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  book              Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  illustrationAsset Asset? @relation("PageIllustration", fields: [illustrationAssetId], references: [id])
+  narrationAsset    Asset? @relation("PageNarration", fields: [narrationAssetId], references: [id])
+  generationJobs    GenerationJob[]
+  aiUsageRecords    AIUsageRecord[]
+
+  @@unique([bookId, pageNumber])
+  @@map("pages")
+  @@schema("public")
+}
+
+enum PageStatus {
+  PENDING
+  TEXT_READY
+  ILLUSTRATING
+  ILLUSTRATED
+  NARRATING
+  NARRATED
+  APPROVED
+  @@schema("public")
+}
+
+// Which CharacterBible entries appear in which Book — many-to-many, so a
+// book can feature a main character plus a supporting one (the direct
+// descendant of StoryNest's Premium supporting-character feature).
+model BookCharacter {
+  bookId      String  @map("book_id") @db.Uuid
+  characterId String  @map("character_id") @db.Uuid
+  role        String? // e.g. "main", "supporting"
+
+  book      Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  character CharacterBible @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, characterId])
+  @@map("book_characters")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ASSIGNMENTS & READING PROGRESS (Sections 7–8)
+// ─────────────────────────────────────────────────────────────
+
+// The join table that makes a Book a reusable asset (Section 5,
+// Principle 3) — Book A can be assigned to Child 1, 2, and 3
+// independently, each with their own ReadingProgress row.
+model BookAssignment {
+  id               String           @id @default(uuid()) @db.Uuid
+  bookId           String           @map("book_id") @db.Uuid
+  childId          String           @map("child_id") @db.Uuid
+  assignedByUserId String           @map("assigned_by_user_id") @db.Uuid
+  assignedAt       DateTime         @default(now()) @map("assigned_at")
+  status           AssignmentStatus @default(ACTIVE)
+
+  book         Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  child        Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  assignedByUser User @relation("AssignedByUser", fields: [assignedByUserId], references: [id])
+
+  @@unique([bookId, childId])
+  @@map("book_assignments")
+  @@schema("public")
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  REMOVED
+  @@schema("public")
+}
+
+// Section 8: "do not rely solely on one percentage field" — this row
+// carries the running state (current page, percentage) while
+// ReadingSession below carries the historical record of individual
+// reading sessions, which is what future reading-streak/insights
+// features (Section 33) will actually query.
+model ReadingProgress {
+  id                      String    @id @default(uuid()) @db.Uuid
+  childId                 String    @map("child_id") @db.Uuid
+  bookId                  String    @map("book_id") @db.Uuid
+  currentPage             Int       @default(1) @map("current_page")
+  completedPages          Int[]     @default([]) @map("completed_pages")
+  percentage              Int       @default(0)
+  startedAt               DateTime  @default(now()) @map("started_at")
+  lastReadAt              DateTime  @default(now()) @map("last_read_at")
+  completedAt             DateTime? @map("completed_at")
+  totalReadingTimeSeconds Int       @default(0) @map("total_reading_time_seconds")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, bookId])
+  @@map("reading_progress")
+  @@schema("public")
+}
+
+model ReadingSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  childId   String    @map("child_id") @db.Uuid
+  bookId    String    @map("book_id") @db.Uuid
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  pagesRead Int       @default(0) @map("pages_read")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@map("reading_sessions")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// STORY STUDIO (Sections 9–15)
+// ─────────────────────────────────────────────────────────────
+
+// One Story always backs exactly one Book — the CUSTOM (or admin-authored
+// CURATED) book it's building. `childId` is nullable because a CURATED
+// book authored by an admin isn't briefed for any one child.
+model Story {
+  id        String      @id @default(uuid()) @db.Uuid
+  bookId    String      @unique @map("book_id") @db.Uuid
+  familyId  String      @map("family_id") @db.Uuid
+  childId   String?     @map("child_id") @db.Uuid
+  status    StoryStatus @default(DRAFT)
+  brief     Json // { age, interests, lesson, genre, setting, language, culturalContext, parentInstructions }
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  book     Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  family   Family         @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  child    Child?         @relation(fields: [childId], references: [id])
+  versions StoryVersion[]
+
+  @@map("app_stories")
+  @@schema("public")
+}
+
+// Exactly the lifecycle Section 9 specifies — kept as one enum, not
+// split across multiple boolean flags, so a Story's current state is
+// always one unambiguous value.
+enum StoryStatus {
+  DRAFT
+  STORY_GENERATED
+  PARENT_EDITING
+  STORY_APPROVED
+  ILLUSTRATING
+  NARRATING
+  BOOK_REVIEW
+  PUBLISHED
+  ASSIGNED
+  @@schema("public")
+}
+
+// Section 10's explicit requirement: never destructively overwrite an
+// approved/published story. Every meaningful AI generation or parent
+// edit creates a new version; `createdByUserId` is null for an
+// AI-generated version and set for a direct parent edit, so the history
+// shows which is which.
+model StoryVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  storyId         String   @map("story_id") @db.Uuid
+  versionNumber   Int      @map("version_number")
+  title           String
+  summary         String?
+  pagesJson       Json     @map("pages_json") // [{ pageNumber, text, illustrationSpec }]
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  story          Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  createdByUser  User? @relation("StoryVersionAuthor", fields: [createdByUserId], references: [id])
+
+  @@unique([storyId, versionNumber])
+  @@map("story_versions")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// BACKGROUND JOBS (Section 17)
+// ─────────────────────────────────────────────────────────────
+
+// A real job abstraction so no long AI pipeline depends on one HTTP
+// request staying open — this is the schema-level fix for the exact
+// class of bug that dominated a large share of StoryNest's build history
+// (Vercel function timeouts, OpenAI rate-limit retries fought inside a
+// single synchronous request). For MVP this can be processed by a
+// lightweight polling worker (e.g. a Vercel Cron route scanning for
+// QUEUED jobs every minute) rather than a full managed queue service —
+// deliberately NOT building a custom queue engine (Section 17 explicitly
+// says not to), but also not standing up Redis/SQS on day one when a
+// polling table achieves the same "don't block on one request" property
+// for MVP volume. The schema doesn't need to change when a real queue
+// replaces the poller later.
+model GenerationJob {
+  id           String    @id @default(uuid()) @db.Uuid
+  familyId     String    @map("family_id") @db.Uuid
+  bookId       String?   @map("book_id") @db.Uuid
+  pageId       String?   @map("page_id") @db.Uuid
+  jobType      JobType   @map("job_type")
+  status       JobStatus @default(QUEUED)
+  inputJson    Json?     @map("input_json")
+  resultJson   Json?     @map("result_json")
+  errorMessage String?   @map("error_message")
+  attempts     Int       @default(0)
+  queuedAt     DateTime  @default(now()) @map("queued_at")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  book   Book?  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  page   Page?  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("generation_jobs")
+  @@schema("public")
+}
+
+enum JobType {
+  STORY_GENERATION
+  STORY_REWRITE
+  IMAGE_GENERATION
+  IMAGE_REGENERATION
+  IMAGE_EDIT
+  NARRATION
+  MODERATION
+  @@schema("public")
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI USAGE / COST TRACKING (Section 16 — explicitly mandatory)
+// ─────────────────────────────────────────────────────────────
+
+// `estimatedCostMinorUnits` is an INTEGER (kobo), never a float — a real
+// decision worth stating explicitly: floating-point currency values
+// accumulate rounding error across thousands of records in exactly the
+// way that makes a "calculate actual cost per customer/book" report
+// (Section 16's stated purpose for this table) quietly wrong. This
+// matches how Paystack itself represents money (kobo, as integers) and
+// how StoryNest's existing `orders.amount_kobo` column already does it.
+model AIUsageRecord {
+  id                      String   @id @default(uuid()) @db.Uuid
+  familyId                String   @map("family_id") @db.Uuid
+  userId                  String?  @map("user_id") @db.Uuid
+  bookId                  String?  @map("book_id") @db.Uuid
+  pageId                  String?  @map("page_id") @db.Uuid
+  operationType           JobType  @map("operation_type")
+  provider                String // "anthropic" | "openai" | future providers
+  model                   String // e.g. "claude-sonnet-5", "gpt-image-1.5"
+  inputUnits              Int?     @map("input_units") // tokens or images, provider-dependent
+  outputUnits             Int?     @map("output_units")
+  estimatedCostMinorUnits Int      @map("estimated_cost_minor_units")
+  currency                String   @default("NGN")
+  status                  String // "success" | "failed"
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id])
+  book   Book?  @relation(fields: [bookId], references: [id])
+  page   Page?  @relation(fields: [pageId], references: [id])
+
+  @@map("ai_usage_records")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ADMIN (Section 21)
+// ─────────────────────────────────────────────────────────────
+
+model AdminUser {
+  userId String    @id @map("user_id") @db.Uuid
+  role   AdminRole @default(EDITOR)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_users")
+  @@schema("public")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  EDITOR
+  @@schema("public")
+}

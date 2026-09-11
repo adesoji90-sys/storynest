@@ -18,3 +18,5 @@
 .DS_Store
 *.pem
 npm-debug.log*
+
+/lib/generated/prisma
