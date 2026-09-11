@@ -15,9 +15,10 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
-import { CLAUDE_MODEL } from "@/lib/claudeConfig";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
+import { getStoryProvider } from "@/lib/ai/StoryProvider";
+import { estimateStoryGenerationCostKobo } from "@/lib/ai/costEstimate";
 
 function buildSystemPrompt(targetPages: number, child: { name: string; age: number | null; readingLevel: string | null; interests: string[] }) {
   const wordTarget = targetPages * 80;
@@ -105,50 +106,51 @@ Write the full story now as JSON, following the system instructions exactly.
 `.trim();
 
   try {
-    const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY as string,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        thinking: { type: "disabled" },
-        max_tokens: Math.min(8000, 1800 + brief.pageCount * 420),
-        system: buildSystemPrompt(brief.pageCount, {
+    const provider = getStoryProvider();
+    let result;
+    try {
+      result = await provider.generateStory({
+        systemPrompt: buildSystemPrompt(brief.pageCount, {
           name: child.name,
           age,
           readingLevel: child.readingLevel,
           interests: child.interests,
         }),
-        messages: [{ role: "user", content: userPrompt }],
-      }),
+        userPrompt,
+        maxTokens: Math.min(8000, 1800 + brief.pageCount * 420),
+      });
+    } catch (providerErr) {
+      return res.status(502).json({ error: (providerErr as Error).message || "Story generation failed upstream." });
+    }
+
+    // Logged here, right after a successful provider response and
+    // before attempting to parse it — the cost was incurred the moment
+    // Anthropic returned tokens, regardless of whether we can make
+    // sense of the response afterward. Section 16 requires this for
+    // every AI operation; Story Studio has a real familyId to attribute
+    // it to (unlike admin content generation — see that route's
+    // comment for why it can't do the same yet).
+    await prisma.aiUsageRecord.create({
+      data: {
+        familyId: auth.familyId,
+        userId: auth.userId,
+        bookId: story.bookId,
+        operationType: "STORY_GENERATION",
+        provider: "anthropic",
+        model: result.model,
+        inputUnits: result.inputTokens,
+        outputUnits: result.outputTokens,
+        estimatedCostMinorUnits: estimateStoryGenerationCostKobo(result.inputTokens, result.outputTokens),
+        currency: "NGN",
+        status: "success",
+      },
     });
-
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      console.error("Claude API error:", errText);
-      return res.status(502).json({ error: "Story generation failed upstream." });
-    }
-
-    const data = await apiRes.json();
-    if (data.stop_reason === "max_tokens") {
-      console.error("Story Studio generation was truncated by max_tokens — raise the budget in this file.");
-      return res.status(502).json({ error: "The story ran out of room before finishing — try a shorter page count." });
-    }
-
-    const raw = (data.content || [])
-      .filter((block: { type: string }) => block.type === "text")
-      .map((block: { text: string }) => block.text)
-      .join("")
-      .trim();
 
     let generated: { title?: string; pages?: { text: string }[] };
     try {
-      generated = JSON.parse(raw);
+      generated = JSON.parse(result.rawText);
     } catch {
-      console.error("Failed to parse generated story JSON:", raw.slice(0, 500));
+      console.error("Failed to parse generated story JSON:", result.rawText.slice(0, 500));
       return res.status(502).json({ error: "Couldn't parse the generated story — try again." });
     }
     if (!generated.title || !Array.isArray(generated.pages) || generated.pages.length === 0) {

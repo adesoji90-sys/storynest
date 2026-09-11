@@ -21,8 +21,8 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { CLAUDE_MODEL } from "@/lib/claudeConfig";
 import { requireAdmin } from "@/lib/authAdmin";
+import { getStoryProvider } from "@/lib/ai/StoryProvider";
 
 const GenerateSchema = z.object({
   theme: z.string().trim().min(1, "Describe what the book should be about."),
@@ -102,39 +102,25 @@ Write the full story now as JSON, following the system instructions exactly.
 `.trim();
 
   try {
-    const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY as string,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        thinking: { type: "disabled" },
-        max_tokens: Math.min(8000, 1800 + pageCount * 420),
-        system: buildSystemPrompt(pageCount),
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
-
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      console.error("Claude API error:", errText);
-      return res.status(502).json({ error: "Story generation failed upstream." });
+    const provider = getStoryProvider();
+    let result;
+    try {
+      result = await provider.generateStory({
+        systemPrompt: buildSystemPrompt(pageCount),
+        userPrompt,
+        maxTokens: Math.min(8000, 1800 + pageCount * 420),
+      });
+    } catch (providerErr) {
+      return res.status(502).json({ error: (providerErr as Error).message || "Story generation failed upstream." });
     }
 
-    const data = await apiRes.json();
-    if (data.stop_reason === "max_tokens") {
-      console.error("Admin book generation was truncated by max_tokens — raise the budget in this file.");
-      return res.status(502).json({ error: "The story ran out of room before finishing — try a shorter page count." });
-    }
-
-    const raw = (data.content || [])
-      .filter((block: { type: string }) => block.type === "text")
-      .map((block: { text: string }) => block.text)
-      .join("")
-      .trim();
+    // No AIUsageRecord here — Section 16's tracking is per-family
+    // (AIUsageRecord.familyId is a required column), and admin-generated
+    // curated content has no family to attribute cost to. Story Studio's
+    // generate.ts (personalized, family-scoped) does create one. Fixing
+    // this properly would mean making familyId nullable on
+    // AIUsageRecord, a real schema change that doesn't belong folded
+    // into this refactor — flagged here rather than silently skipped.
 
     let story: {
       title?: string;
@@ -146,9 +132,9 @@ Write the full story now as JSON, following the system instructions exactly.
       lesson?: string;
     };
     try {
-      story = JSON.parse(raw);
+      story = JSON.parse(result.rawText);
     } catch {
-      console.error("Failed to parse generated story JSON:", raw.slice(0, 500));
+      console.error("Failed to parse generated story JSON:", result.rawText.slice(0, 500));
       return res.status(502).json({ error: "Couldn't parse the generated story — try again." });
     }
 
