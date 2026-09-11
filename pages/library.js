@@ -74,20 +74,49 @@ export default function Library() {
     })();
   }, [session]);
 
-  async function handleAssign(bookId, childId) {
+  const [successMessage, setSuccessMessage] = useState(null); // { bookId, text }
+
+  function showSuccess(bookId, text) {
+    setSuccessMessage({ bookId, text });
+    setTimeout(() => setSuccessMessage((cur) => (cur?.bookId === bookId ? null : cur)), 2500);
+  }
+
+  async function assignOne(bookId, childId) {
+    const res = await fetch("/api/assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ bookId, childId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Couldn't assign the book.");
+  }
+
+  async function handleAssign(bookId, childId, childName) {
     setError("");
     try {
-      const res = await fetch("/api/assignments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ bookId, childId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't assign the book.");
+      await assignOne(bookId, childId);
       setAssignedMap((prev) => ({
         ...prev,
         [childId]: new Set([...(prev[childId] || []), bookId]),
       }));
+      showSuccess(bookId, `Assigned to ${childName}.`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleAssignAll(bookId) {
+    setError("");
+    const targets = children.filter((c) => !assignedMap[c.id]?.has(bookId));
+    if (targets.length === 0) return;
+    try {
+      await Promise.all(targets.map((c) => assignOne(bookId, c.id)));
+      setAssignedMap((prev) => {
+        const next = { ...prev };
+        for (const c of targets) next[c.id] = new Set([...(prev[c.id] || []), bookId]);
+        return next;
+      });
+      showSuccess(bookId, `Assigned to all ${children.length} children.`);
       setAssigningBookId(null);
     } catch (err) {
       setError(err.message);
@@ -145,27 +174,55 @@ export default function Library() {
 
                   {children.length > 0 && (
                     <div className="mt-4">
+                      {successMessage?.bookId === book.id && (
+                        <p className="mb-2 flex items-center gap-1.5 font-body text-sm font-semibold text-leaf">
+                          ✓ {successMessage.text}
+                        </p>
+                      )}
+
+                      {(() => {
+                        const assignedNames = children
+                          .filter((c) => assignedMap[c.id]?.has(book.id))
+                          .map((c) => c.name);
+                        return assignedNames.length > 0 && assigningBookId !== book.id ? (
+                          <p className="mb-2 font-body text-sm text-charcoal/60">
+                            Assigned to: <span className="font-semibold text-charcoal">{assignedNames.join(", ")}</span>
+                          </p>
+                        ) : null;
+                      })()}
+
                       {assigningBookId === book.id ? (
-                        <div className="flex flex-wrap gap-2">
-                          {children.map((child) => {
-                            const alreadyAssigned = assignedMap[child.id]?.has(book.id);
-                            return (
+                        <div>
+                          <p className="font-body text-sm font-semibold text-charcoal/70">Assign to which child?</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {children.length > 1 && (
                               <button
-                                key={child.id}
-                                disabled={alreadyAssigned}
-                                onClick={() => handleAssign(book.id, child.id)}
-                                className="rounded-cloth border border-charcoal/15 px-3 py-1.5 font-body text-sm disabled:opacity-40"
+                                onClick={() => handleAssignAll(book.id)}
+                                className="rounded-cloth border-2 border-coral_ember px-3 py-1.5 font-body text-sm font-bold text-coral_ember"
                               >
-                                {alreadyAssigned ? `✓ ${child.name}` : child.name}
+                                All children
                               </button>
-                            );
-                          })}
-                          <button
-                            onClick={() => setAssigningBookId(null)}
-                            className="font-body text-sm text-charcoal/40"
-                          >
-                            Cancel
-                          </button>
+                            )}
+                            {children.map((child) => {
+                              const alreadyAssigned = assignedMap[child.id]?.has(book.id);
+                              return (
+                                <button
+                                  key={child.id}
+                                  disabled={alreadyAssigned}
+                                  onClick={() => handleAssign(book.id, child.id, child.name)}
+                                  className="rounded-cloth border border-charcoal/15 px-3 py-1.5 font-body text-sm disabled:opacity-40"
+                                >
+                                  {alreadyAssigned ? `✓ ${child.name}` : child.name}
+                                </button>
+                              );
+                            })}
+                            <button
+                              onClick={() => setAssigningBookId(null)}
+                              className="font-body text-sm text-charcoal/40"
+                            >
+                              Done
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <button
