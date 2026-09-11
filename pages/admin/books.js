@@ -6,6 +6,38 @@ import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 
 const READING_LEVELS = ["Beginner", "Early reader", "Independent", "Fluent"];
 
+function groupByCategory(books) {
+  const groups = {};
+  for (const book of books) {
+    const key = book.category || "Uncategorized";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(book);
+  }
+  return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+}
+
+function StatusPill({ status }) {
+  const styles = {
+    PUBLISHED: "bg-leaf/15 text-leaf",
+    DRAFT: "bg-charcoal/10 text-charcoal/60",
+    UNPUBLISHED: "bg-charcoal/10 text-charcoal/60",
+    ARCHIVED: "bg-charcoal/10 text-charcoal/40",
+  };
+  return (
+    <span className={`rounded-full px-2 py-0.5 font-body text-xs font-semibold ${styles[status] || styles.DRAFT}`}>
+      {status}
+    </span>
+  );
+}
+
+function Badge({ children }) {
+  return (
+    <span className="rounded-full border border-charcoal/15 px-2 py-0.5 font-body text-xs text-charcoal/60">
+      {children}
+    </span>
+  );
+}
+
 function emptyForm() {
   return {
     title: "",
@@ -28,6 +60,7 @@ function emptyForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState("");
+  const [mode, setMode] = useState(null); // null (undecided) | "manual" | "ai"
   const [pageCount, setPageCount] = useState(10);
   const [generating, setGenerating] = useState(false);
 
@@ -104,7 +137,16 @@ function emptyForm() {
       // saved yet, and every field here stays editable before "Create
       // book" actually persists anything, same principle as Section 13's
       // "AI-assisted editing must never automatically publish changes."
-      setForm((f) => ({ ...f, title: data.title, pages: data.pages.map((p) => p.text) }));
+      setForm((f) => ({
+        ...f,
+        title: data.title,
+        pages: data.pages.map((p) => p.text),
+        ageRangeMin: data.ageRangeMin != null ? String(data.ageRangeMin) : f.ageRangeMin,
+        ageRangeMax: data.ageRangeMax != null ? String(data.ageRangeMax) : f.ageRangeMax,
+        readingLevel: data.readingLevel || f.readingLevel,
+        category: data.category || f.category,
+        lesson: data.lesson || f.lesson,
+      }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -139,6 +181,8 @@ function emptyForm() {
       if (!res.ok) throw new Error(data.error || "Couldn't create the book.");
       setBooks((prev) => [{ ...data.book, _count: { pages: form.pages.length } }, ...prev]);
       setForm(emptyForm());
+      setMode(null);
+      setTheme("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -203,42 +247,68 @@ function emptyForm() {
           <form onSubmit={handleSubmit} className="mt-8 rounded-cloth bg-white p-6 shadow-sm">
             <h2 className="font-display text-xl">New book</h2>
 
-            <div className="mt-4 rounded-cloth bg-indigo_night/5 p-4">
-              <label className="block font-body font-semibold">
-                Generate with AI <span className="font-normal text-charcoal/50">(optional — you can also just type pages below)</span>
-              </label>
-              <textarea
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                placeholder="What should this book be about? e.g. a shy girl who learns to make friends at a new school"
-                rows={2}
-                className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
-              />
-              <div className="mt-2 flex items-center gap-3">
-                <label className="font-body text-sm">Pages:</label>
-                <input
-                  type="number"
-                  min={3}
-                  max={30}
-                  value={pageCount}
-                  onChange={(e) => setPageCount(e.target.value)}
-                  className="w-20 rounded-cloth border border-charcoal/15 bg-white px-2 py-1 font-body"
-                />
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  className="ml-auto rounded-cloth bg-indigo_night px-4 py-2 font-body text-sm font-bold text-white disabled:opacity-50"
-                >
-                  {generating ? "Writing…" : "Generate story"}
-                </button>
-              </div>
-              <p className="mt-2 font-body text-xs text-charcoal/50">
-                Fills in the title and pages below for you to review and edit — nothing is saved until you click
-                "Create book."
-              </p>
+            <p className="mt-3 font-body text-sm text-charcoal/60">How do you want to create this book?</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setMode("manual")}
+                className={`rounded-cloth border-2 p-4 text-left font-body ${
+                  mode === "manual" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                }`}
+              >
+                <p className="font-bold">Write it myself</p>
+                <p className="mt-1 text-sm text-charcoal/60">Type each page's text directly.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("ai")}
+                className={`rounded-cloth border-2 p-4 text-left font-body ${
+                  mode === "ai" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"
+                }`}
+              >
+                <p className="font-bold">Generate with AI</p>
+                <p className="mt-1 text-sm text-charcoal/60">Describe the theme — AI drafts it, you review and edit.</p>
+              </button>
             </div>
 
+            {mode === "ai" && (
+              <div className="mt-4 rounded-cloth bg-indigo_night/5 p-4">
+                <label className="block font-body font-semibold">What should this book be about?</label>
+                <textarea
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  placeholder="e.g. a shy girl who learns to make friends at a new school"
+                  rows={2}
+                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                />
+                <div className="mt-2 flex items-center gap-3">
+                  <label className="font-body text-sm">Pages:</label>
+                  <input
+                    type="number"
+                    min={3}
+                    max={30}
+                    value={pageCount}
+                    onChange={(e) => setPageCount(e.target.value)}
+                    className="w-20 rounded-cloth border border-charcoal/15 bg-white px-2 py-1 font-body"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    className="ml-auto rounded-cloth bg-indigo_night px-4 py-2 font-body text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {generating ? "Writing…" : "Generate story"}
+                  </button>
+                </div>
+                <p className="mt-2 font-body text-xs text-charcoal/50">
+                  Fills in the title, age range, reading level, category, lesson, and pages below for you to
+                  review and edit — nothing is saved until you click "Create book."
+                </p>
+              </div>
+            )}
+
+            {mode && (
+              <>
             <label className="mt-4 block font-body font-semibold">Title</label>
             <input
               value={form.title}
@@ -354,29 +424,49 @@ function emptyForm() {
             >
               {saving ? "Creating…" : "Create book (draft)"}
             </button>
+              </>
+            )}
           </form>
 
-          <h2 className="mt-10 font-display text-xl">Existing books</h2>
+          <h2 className="mt-10 font-display text-xl">Your library</h2>
           {loading ? (
             <p className="mt-4 font-body text-charcoal/50">Loading…</p>
           ) : books.length === 0 ? (
             <p className="mt-4 font-body text-charcoal/50">No books yet.</p>
           ) : (
-            <div className="mt-4 space-y-3">
-              {books.map((book) => (
-                <div key={book.id} className="flex items-center justify-between rounded-cloth bg-white p-4 shadow-sm">
-                  <div>
-                    <p className="font-body font-bold">{book.title}</p>
-                    <p className="font-body text-sm text-charcoal/60">
-                      {book._count?.pages ?? "?"} pages · {book.status}
-                    </p>
+            <div className="mt-4 space-y-8">
+              {groupByCategory(books).map(([category, categoryBooks]) => (
+                <div key={category}>
+                  <h3 className="font-body text-sm font-bold uppercase tracking-wide text-charcoal/50">
+                    {category} <span className="font-normal normal-case text-charcoal/40">({categoryBooks.length})</span>
+                  </h3>
+                  <div className="mt-3 space-y-3">
+                    {categoryBooks.map((book) => (
+                      <div key={book.id} className="flex items-center justify-between rounded-cloth bg-white p-4 shadow-sm">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-body font-bold">{book.title}</p>
+                            <StatusPill status={book.status} />
+                          </div>
+                          {book.subtitle && <p className="font-body text-sm text-charcoal/60">{book.subtitle}</p>}
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {(book.ageRangeMin != null || book.ageRangeMax != null) && (
+                              <Badge>Ages {book.ageRangeMin ?? "?"}–{book.ageRangeMax ?? "?"}</Badge>
+                            )}
+                            {book.readingLevel && <Badge>{book.readingLevel}</Badge>}
+                            {book.lesson && <Badge>{book.lesson}</Badge>}
+                            <Badge>{book._count?.pages ?? "?"} pages</Badge>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => togglePublish(book)}
+                          className="shrink-0 rounded-cloth border border-charcoal/15 px-4 py-2 font-body text-sm font-semibold"
+                        >
+                          {book.status === "PUBLISHED" ? "Unpublish" : "Publish"}
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => togglePublish(book)}
-                    className="rounded-cloth border border-charcoal/15 px-4 py-2 font-body text-sm font-semibold"
-                  >
-                    {book.status === "PUBLISHED" ? "Unpublish" : "Publish"}
-                  </button>
                 </div>
               ))}
             </div>
