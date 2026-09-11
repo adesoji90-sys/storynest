@@ -3,6 +3,8 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+import { enterReadingMode } from "@/lib/readingMode";
+import ReadingModePinSetup from "@/components/ReadingModePinSetup";
 
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return null;
@@ -147,6 +149,8 @@ export default function Family() {
   const [saving, setSaving] = useState(false);
   const [assignmentsByChild, setAssignmentsByChild] = useState({}); // childId -> assignment[]
   const [limitModalMessage, setLimitModalMessage] = useState(null);
+  const [hasReadingModePin, setHasReadingModePin] = useState(null); // null = unknown yet
+  const [pendingReadingModeChildId, setPendingReadingModeChildId] = useState(null);
 
   useEffect(() => {
     async function checkSession() {
@@ -190,6 +194,26 @@ export default function Family() {
   useEffect(() => {
     if (session) loadChildren(session.access_token);
   }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/family/reading-mode-pin", { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => r.json())
+      .then((data) => setHasReadingModePin(!!data.hasPin))
+      .catch(() => setHasReadingModePin(false));
+  }, [session]);
+
+  function handleStartReadingMode(childId) {
+    if (hasReadingModePin) {
+      enterReadingMode(childId);
+      router.push("/reading-mode");
+    } else {
+      // No PIN set yet -- this is the only place in the app that flow
+      // can be reached from, deliberately: it's still the parent-facing
+      // /family page, never anything inside Reading Mode itself.
+      setPendingReadingModeChildId(childId);
+    }
+  }
 
   async function handleAdd(payload) {
     setSaving(true);
@@ -269,6 +293,7 @@ export default function Family() {
           <Link href="/" className="font-display text-xl">StoryNest</Link>
           <div className="flex items-center gap-5">
             <Link href="/library" className="font-body text-sm text-charcoal/60">Library</Link>
+            <Link href="/story-studio" className="font-body text-sm text-charcoal/60">Story Studio</Link>
             <Link href="/account" className="font-body text-sm text-charcoal/60">My Library →</Link>
           </div>
         </header>
@@ -332,7 +357,14 @@ export default function Family() {
                               <Link href="/library" className="font-semibold text-coral_ember">browse the library</Link>.
                             </p>
                           ) : (
-                            <div className="space-y-2">
+                            <>
+                              <button
+                                onClick={() => handleStartReadingMode(child.id)}
+                                className="mb-3 w-full rounded-cloth bg-indigo_night px-4 py-2.5 font-body font-bold text-white"
+                              >
+                                📖 Start Reading Mode for {child.name}
+                              </button>
+                              <div className="space-y-2">
                               {assignmentsByChild[child.id].map((a) => (
                                 <Link
                                   key={a.id}
@@ -354,7 +386,8 @@ export default function Family() {
                                   </div>
                                 </Link>
                               ))}
-                            </div>
+                              </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -379,6 +412,17 @@ export default function Family() {
       </main>
       {limitModalMessage && (
         <LimitModal message={limitModalMessage} onClose={() => setLimitModalMessage(null)} />
+      )}
+      {pendingReadingModeChildId && (
+        <ReadingModePinSetup
+          accessToken={session.access_token}
+          onCancel={() => setPendingReadingModeChildId(null)}
+          onSuccess={() => {
+            setHasReadingModePin(true);
+            enterReadingMode(pendingReadingModeChildId);
+            router.push("/reading-mode");
+          }}
+        />
       )}
     </>
   );

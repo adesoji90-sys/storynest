@@ -87,6 +87,20 @@ model Family {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Reading Mode's exit gate (see /reading-mode) — a real PIN, not a
+  // puzzle, specifically because a puzzle (e.g. a math problem) can be
+  // defeated by anything that computes, including a calculator on the
+  // same device. Never stored as plain text — hashed with a random
+  // per-family salt via Node's built-in scrypt (see
+  // lib/readingModePin.ts), which is deliberately memory-hard, unlike a
+  // bare SHA-256 hash, to slow down brute-forcing even a small 4-digit
+  // keyspace. The two lockout fields below are the other half of that
+  // defense: hashing alone doesn't stop someone from just trying all
+  // 10,000 combinations by hand or script against the verify endpoint.
+  readingModePinHash            String?   @map("reading_mode_pin_hash")
+  readingModePinFailedAttempts  Int       @default(0) @map("reading_mode_pin_failed_attempts")
+  readingModePinLockedUntil     DateTime? @map("reading_mode_pin_locked_until")
+
   members         FamilyMember[]
   children        Child[]
   subscription    Subscription?

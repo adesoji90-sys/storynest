@@ -49,4 +49,17 @@ export default defineConfig({
       "public.custom_character_poses",
     ],
   },
+  enums: {
+    external: [
+      "auth.aal_level",
+      "auth.code_challenge_method",
+      "auth.factor_status",
+      "auth.factor_type",
+      "auth.oauth_authorization_status",
+      "auth.oauth_client_type",
+      "auth.oauth_registration_type",
+      "auth.oauth_response_type",
+      "auth.one_time_token_type",
+    ],
+  },
 });

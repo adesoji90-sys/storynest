@@ -107,11 +107,18 @@ export default async function handler(
       // inconsistent state that shouldn't occur via this endpoint alone,
       // but worth healing rather than erroring, since the alternative is
       // a permanently broken account with no clear recovery path.
-      const family = await prisma.family.create({
-        data: { members: { create: { userId, role: "OWNER" } } },
+      // Wrapped in a transaction for the same reason as the new-user
+      // path below — a family created without its entitlement is the
+      // same kind of inconsistent state this branch exists to fix, not
+      // one it should risk creating.
+      const healedFamilyId = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const family = await tx.family.create({
+          data: { members: { create: { userId, role: "OWNER" } } },
+        });
+        await createDefaultEntitlement(tx, family.id);
+        return family.id;
       });
-      await createDefaultEntitlement(prisma as unknown as Prisma.TransactionClient, family.id);
-      return res.status(200).json({ ok: true, familyId: family.id });
+      return res.status(200).json({ ok: true, familyId: healedFamilyId });
     }
 
     // Genuinely new user: create User + Family + FamilyMember together.

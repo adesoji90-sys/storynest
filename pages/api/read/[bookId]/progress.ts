@@ -51,6 +51,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Child not found." });
     }
 
+    // Same gate as the GET reader endpoint — without this, progress
+    // could still be recorded against a book that's been unassigned
+    // since the reader was opened (the ReadingProgress row from the
+    // original session persists by design, per Section 2's "never
+    // delete history," but that's not the same as still having access).
+    const assignment = await prisma.bookAssignment.findFirst({
+      where: { bookId, childId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!assignment) {
+      return res.status(403).json({ error: "This book isn't assigned to this child." });
+    }
+
     const totalPages = await prisma.page.count({ where: { bookId } });
     if (totalPages === 0) {
       return res.status(404).json({ error: "Book not found." });
@@ -73,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     await prisma.readingSession.updateMany({
-      where: { id: sessionId, childId },
+      where: { id: sessionId, childId, bookId },
       data: { endedAt: new Date(), pagesRead: clampedPage },
     });
 

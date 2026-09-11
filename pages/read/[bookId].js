@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+import { getReadingModeChildId } from "@/lib/readingMode";
 
 export default function Reader() {
   const router = useRouter();
@@ -106,7 +107,12 @@ export default function Reader() {
       </Head>
       <main className="flex min-h-screen flex-col bg-ivory_cloth text-charcoal">
         <header className="flex items-center justify-between px-6 py-4">
-          <Link href="/family" className="font-body text-sm text-charcoal/60">← Exit book</Link>
+          <Link
+            href={getReadingModeChildId() ? "/reading-mode" : "/family"}
+            className="font-body text-sm text-charcoal/60"
+          >
+            ← Exit book
+          </Link>
           <p className="font-body text-sm text-charcoal/50">
             Page {pageIndex + 1} of {book.pages.length}
           </p>
