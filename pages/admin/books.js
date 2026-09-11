@@ -18,9 +18,7 @@ function emptyForm() {
     lesson: "",
     pages: [""],
   };
-}
-
-export default function AdminBooks() {
+}export default function AdminBooks() {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
   const [authorized, setAuthorized] = useState(null); // null = checking, true/false = known
@@ -29,6 +27,9 @@ export default function AdminBooks() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [theme, setTheme] = useState("");
+  const [pageCount, setPageCount] = useState(10);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     async function checkSession() {
@@ -77,6 +78,38 @@ export default function AdminBooks() {
   }
   function removePage(index) {
     setForm((f) => ({ ...f, pages: f.pages.filter((_, i) => i !== index) }));
+  }
+
+  async function handleGenerate() {
+    if (!theme.trim()) return setError("Describe what the book should be about first.");
+    setError("");
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/admin/books/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          theme: theme.trim(),
+          ageRangeMin: form.ageRangeMin ? Number(form.ageRangeMin) : undefined,
+          ageRangeMax: form.ageRangeMax ? Number(form.ageRangeMax) : undefined,
+          readingLevel: form.readingLevel || undefined,
+          lesson: form.lesson.trim() || undefined,
+          category: form.category.trim() || undefined,
+          pageCount: Number(pageCount) || 10,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't generate the story.");
+      // Fills the SAME editable fields the manual flow uses — nothing is
+      // saved yet, and every field here stays editable before "Create
+      // book" actually persists anything, same principle as Section 13's
+      // "AI-assisted editing must never automatically publish changes."
+      setForm((f) => ({ ...f, title: data.title, pages: data.pages.map((p) => p.text) }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -169,6 +202,43 @@ export default function AdminBooks() {
 
           <form onSubmit={handleSubmit} className="mt-8 rounded-cloth bg-white p-6 shadow-sm">
             <h2 className="font-display text-xl">New book</h2>
+
+            <div className="mt-4 rounded-cloth bg-indigo_night/5 p-4">
+              <label className="block font-body font-semibold">
+                Generate with AI <span className="font-normal text-charcoal/50">(optional — you can also just type pages below)</span>
+              </label>
+              <textarea
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                placeholder="What should this book be about? e.g. a shy girl who learns to make friends at a new school"
+                rows={2}
+                className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+              />
+              <div className="mt-2 flex items-center gap-3">
+                <label className="font-body text-sm">Pages:</label>
+                <input
+                  type="number"
+                  min={3}
+                  max={30}
+                  value={pageCount}
+                  onChange={(e) => setPageCount(e.target.value)}
+                  className="w-20 rounded-cloth border border-charcoal/15 bg-white px-2 py-1 font-body"
+                />
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={generating}
+                  className="ml-auto rounded-cloth bg-indigo_night px-4 py-2 font-body text-sm font-bold text-white disabled:opacity-50"
+                >
+                  {generating ? "Writing…" : "Generate story"}
+                </button>
+              </div>
+              <p className="mt-2 font-body text-xs text-charcoal/50">
+                Fills in the title and pages below for you to review and edit — nothing is saved until you click
+                "Create book."
+              </p>
+            </div>
+
             <label className="mt-4 block font-body font-semibold">Title</label>
             <input
               value={form.title}
