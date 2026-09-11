@@ -27,6 +27,34 @@ function ProgressTag({ progress }) {
 
 const READING_LEVELS = ["Beginner", "Early reader", "Independent", "Fluent"];
 
+function LimitModal({ message, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 px-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-cloth bg-white p-6 text-center shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-display text-xl">Plan limit reached</h2>
+        <p className="mt-2 font-body text-charcoal/70">{message}</p>
+        <div className="mt-6 flex flex-col gap-2">
+          <Link
+            href="/upgrade"
+            className="rounded-cloth bg-coral_ember px-5 py-2.5 font-body font-bold text-white"
+          >
+            Upgrade to add more →
+          </Link>
+          <button onClick={onClose} className="font-body text-sm text-charcoal/50">
+            Not now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChildForm({ initial, onCancel, onSave, saving }) {
   const [name, setName] = useState(initial?.name || "");
   const [dateOfBirth, setDateOfBirth] = useState(initial?.dateOfBirth ? initial.dateOfBirth.slice(0, 10) : "");
@@ -118,6 +146,7 @@ export default function Family() {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [assignmentsByChild, setAssignmentsByChild] = useState({}); // childId -> assignment[]
+  const [limitModalMessage, setLimitModalMessage] = useState(null);
 
   useEffect(() => {
     async function checkSession() {
@@ -172,7 +201,13 @@ export default function Family() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't add child.");
+      if (!res.ok) {
+        if (data.code === "PLAN_LIMIT_REACHED") {
+          setLimitModalMessage(data.error);
+          return;
+        }
+        throw new Error(data.error || "Couldn't add child.");
+      }
       setChildren((prev) => [...prev, data.child]);
       setAdding(false);
     } catch (err) {
@@ -342,6 +377,9 @@ export default function Family() {
           )}
         </div>
       </main>
+      {limitModalMessage && (
+        <LimitModal message={limitModalMessage} onClose={() => setLimitModalMessage(null)} />
+      )}
     </>
   );
 }

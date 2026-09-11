@@ -356,19 +356,39 @@ create policy "Users can view poses of their own custom characters"
 -- STEP 11: DEFAULT PLANS (Section 23 — plans are data, not code)
 -- ─────────────────────────────────────────────────────────────
 -- Two starter plans matching Section 23's tiers ("library-only" and
--- "personalized"). PRICE IS A PLACEHOLDER — Section 23 explicitly says
--- "do not hard-code final prices yet"; the "family" plan's
--- price_minor_units below is a stand-in, not a committed business
--- decision, and should be updated directly in this table (or via a
--- future admin UI) once real pricing is decided — no code change
--- needed either way, which is the whole point of plans being data.
+-- "personalized"). PRICES ARE PLACEHOLDERS — Section 23 explicitly says
+-- "do not hard-code final prices yet"; both price_minor_units values
+-- below are stand-ins, not a committed business decision, and should be
+-- updated directly in this table (or via a future admin UI) once real
+-- pricing is decided — no code change needed either way, which is the
+-- whole point of plans being data. Neither tier is free — there is no
+-- free plan in the business model, including the base "Reader" tier,
+-- which has a real (placeholder) price like the other one.
 --
--- Every new family gets the "free" plan's limits as their default
+-- Named "Reader" and "Family" rather than "Basic"/"Premium" specifically
+-- to avoid confusion with StoryNest's existing Basic/Premium tiers,
+-- which are a different concept entirely (one-off personalized book
+-- purchases) from these ongoing library-access plans.
+--
+-- Every new family gets the "reader" plan's limits as their default
 -- entitlement automatically (see pages/api/auth/bootstrap.ts) — this
 -- is what makes max_children enforcement possible for every family,
 -- not just ones that eventually subscribe to something paid.
+--
+-- These UPDATE statements fix a plan row seeded under the old
+-- placeholder names/prices in an earlier version of this file — safe to
+-- run even if you never ran that earlier version, since the WHERE
+-- clause simply won't match anything in that case.
+update public.plans
+set code = 'reader', name = 'Reader', description = 'Library access for one child. No custom books.', price_minor_units = 150000, updated_at = now()
+where code = 'free';
+
+update public.plans
+set name = 'Family', description = 'Library access for up to 5 children, plus custom book credits. Price is a placeholder pending final business decision.', updated_at = now()
+where code = 'family';
+
 insert into public.plans (id, code, name, description, max_children, library_access, custom_books_allowed, custom_book_credits, narration_allowed, premium_images_allowed, price_minor_units, currency, billing_interval, active, updated_at)
 values
-  (uuid_generate_v4(), 'free', 'Free', 'Library access for one child. No custom books.', 1, true, false, null, false, false, 0, 'NGN', 'MONTHLY', true, now()),
+  (uuid_generate_v4(), 'reader', 'Reader', 'Library access for one child. No custom books. Price is a placeholder pending final business decision.', 1, true, false, null, false, false, 150000, 'NGN', 'MONTHLY', true, now()),
   (uuid_generate_v4(), 'family', 'Family', 'Library access for up to 5 children, plus custom book credits. Price is a placeholder pending final business decision.', 5, true, true, 10, false, false, 500000, 'NGN', 'MONTHLY', true, now())
 on conflict (code) do nothing;

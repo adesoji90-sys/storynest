@@ -29,30 +29,32 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
-// Step 11: every family gets a default Entitlement copying the "free"
+// Step 11: every family gets a default Entitlement copying the "reader"
 // Plan's limits the moment it's created — this is what makes
 // max_children enforcement (see /api/children) possible for every
 // family, not just ones that eventually subscribe to something paid.
-// If the "free" plan hasn't been seeded yet (schema.sql not re-run),
-// this logs and skips rather than failing the whole signup — a family
-// with no entitlement yet just means limits aren't enforced for them
-// until the plan exists and this is reconciled, not a reason to block
-// every new account.
+// "reader" is the base tier's plan code — not free, just the entry
+// tier every new family starts on before choosing to upgrade.
+// If this plan hasn't been seeded yet (schema.sql not re-run), this
+// logs and skips rather than failing the whole signup — a family with
+// no entitlement yet just means limits aren't enforced for them until
+// the plan exists and this is reconciled, not a reason to block every
+// new account.
 async function createDefaultEntitlement(tx: Prisma.TransactionClient, familyId: string) {
-  const freePlan = await tx.plan.findUnique({ where: { code: "free" } });
-  if (!freePlan) {
-    console.error('No "free" plan found — re-run schema.sql\'s Step 11 seed. Skipping entitlement creation.');
+  const basePlan = await tx.plan.findUnique({ where: { code: "reader" } });
+  if (!basePlan) {
+    console.error('No "reader" plan found — re-run schema.sql\'s Step 11 seed. Skipping entitlement creation.');
     return;
   }
   await tx.entitlement.create({
     data: {
       familyId,
-      maxChildren: freePlan.maxChildren,
-      libraryAccess: freePlan.libraryAccess,
-      customBooksAllowed: freePlan.customBooksAllowed,
-      customBookCreditsTotal: freePlan.customBookCredits,
-      narrationAllowed: freePlan.narrationAllowed,
-      premiumImagesAllowed: freePlan.premiumImagesAllowed,
+      maxChildren: basePlan.maxChildren,
+      libraryAccess: basePlan.libraryAccess,
+      customBooksAllowed: basePlan.customBooksAllowed,
+      customBookCreditsTotal: basePlan.customBookCredits,
+      narrationAllowed: basePlan.narrationAllowed,
+      premiumImagesAllowed: basePlan.premiumImagesAllowed,
     },
   });
 }

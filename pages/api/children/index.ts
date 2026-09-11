@@ -50,7 +50,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const activeChildCount = await prisma.child.count({ where: { familyId: auth.familyId, active: true } });
       if (activeChildCount >= entitlement.maxChildren) {
         return res.status(403).json({
-          error: `Your plan allows up to ${entitlement.maxChildren} ${entitlement.maxChildren === 1 ? "child" : "children"} — upgrade to add more.`,
+          error: `Your plan allows up to ${entitlement.maxChildren} ${entitlement.maxChildren === 1 ? "child" : "children"}.`,
+          code: "PLAN_LIMIT_REACHED",
         });
       }
     }
