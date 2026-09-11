@@ -79,6 +79,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   };
 
   const child = story.child;
+  if (!child) {
+    // Story.childId is nullable in the schema because admin-authored
+    // curated books use the same Story model without one — but every
+    // story created through THIS route (/api/story-studio) always sets
+    // a childId. Reaching this branch means a story somehow lost its
+    // child link after creation, not a normal case, so it's reported
+    // as a real error rather than silently generating an
+    // un-personalized story.
+    return res.status(500).json({ error: "This story has no child linked to it — cannot personalize." });
+  }
   const age = child.dateOfBirth
     ? Math.floor((Date.now() - new Date(child.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
