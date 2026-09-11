@@ -11,6 +11,20 @@ function calculateAge(dateOfBirth) {
   return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
 }
 
+function Badge({ children }) {
+  return (
+    <span className="rounded-full border border-charcoal/15 px-2 py-0.5 font-body text-xs text-charcoal/60">
+      {children}
+    </span>
+  );
+}
+
+function ProgressTag({ progress }) {
+  if (!progress) return <span className="font-body text-xs text-charcoal/40">Not started</span>;
+  if (progress.completedAt) return <span className="font-body text-xs font-semibold text-leaf">✓ Completed</span>;
+  return <span className="font-body text-xs text-charcoal/50">{progress.percentage}% read</span>;
+}
+
 const READING_LEVELS = ["Beginner", "Early reader", "Independent", "Fluent"];
 
 function ChildForm({ initial, onCancel, onSave, saving }) {
@@ -283,15 +297,26 @@ export default function Family() {
                               <Link href="/library" className="font-semibold text-coral_ember">browse the library</Link>.
                             </p>
                           ) : (
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               {assignmentsByChild[child.id].map((a) => (
                                 <Link
                                   key={a.id}
                                   href={`/read/${a.book.id}?childId=${child.id}`}
-                                  className="flex items-center justify-between rounded-cloth px-2 py-1.5 font-body text-sm hover:bg-ivory_cloth"
+                                  className="block rounded-cloth px-2 py-2 hover:bg-ivory_cloth"
                                 >
-                                  <span>{a.book.title}</span>
-                                  <span className="text-coral_ember">Read →</span>
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-body text-sm font-semibold">{a.book.title}</span>
+                                    <span className="font-body text-sm text-coral_ember">Read →</span>
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    {(a.book.ageRangeMin != null || a.book.ageRangeMax != null) && (
+                                      <Badge>Ages {a.book.ageRangeMin ?? "?"}–{a.book.ageRangeMax ?? "?"}</Badge>
+                                    )}
+                                    {a.book.readingLevel && <Badge>{a.book.readingLevel}</Badge>}
+                                    {a.book.category && <Badge>{a.book.category}</Badge>}
+                                    <Badge>{a.book._count?.pages ?? "?"} pages</Badge>
+                                    <ProgressTag progress={a.progress} />
+                                  </div>
                                 </Link>
                               ))}
                             </div>

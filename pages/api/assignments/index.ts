@@ -50,11 +50,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         orderBy: { assignedAt: "desc" },
         include: {
           book: {
-            select: { id: true, title: true, subtitle: true, ageRangeMin: true, ageRangeMax: true, readingLevel: true, category: true },
+            select: {
+              id: true,
+              title: true,
+              subtitle: true,
+              ageRangeMin: true,
+              ageRangeMax: true,
+              readingLevel: true,
+              category: true,
+              _count: { select: { pages: true } },
+            },
           },
         },
       });
-      return res.status(200).json({ assignments });
+
+      // ReadingProgress has no direct Prisma relation to BookAssignment
+      // (both are independently keyed by childId+bookId, not linked to
+      // each other) — fetched separately and merged in here so the
+      // caller gets "how far has this child gotten" alongside "what's
+      // assigned" in one response, without the client needing a second
+      // round-trip per book.
+      const bookIds = assignments.map((a: { bookId: string }) => a.bookId);
+      const progressRows = bookIds.length
+        ? await prisma.readingProgress.findMany({ where: { childId, bookId: { in: bookIds } } })
+        : [];
+      const progressByBookId = Object.fromEntries(progressRows.map((p: { bookId: string }) => [p.bookId, p]));
+
+      const withProgress = assignments.map((a: { bookId: string }) => ({
+        ...a,
+        progress: progressByBookId[a.bookId]
+          ? {
+              percentage: progressByBookId[a.bookId].percentage,
+              completedAt: progressByBookId[a.bookId].completedAt,
+            }
+          : null,
+      }));
+
+      return res.status(200).json({ assignments: withProgress });
     } catch (err) {
       console.error("assignments GET error:", err);
       return res.status(500).json({ error: "Unexpected server error." });

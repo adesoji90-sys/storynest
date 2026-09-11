@@ -351,3 +351,24 @@ create policy "Users can view poses of their own custom characters"
       and cc.user_id = auth.uid()
     )
   );
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 11: DEFAULT PLANS (Section 23 — plans are data, not code)
+-- ─────────────────────────────────────────────────────────────
+-- Two starter plans matching Section 23's tiers ("library-only" and
+-- "personalized"). PRICE IS A PLACEHOLDER — Section 23 explicitly says
+-- "do not hard-code final prices yet"; the "family" plan's
+-- price_minor_units below is a stand-in, not a committed business
+-- decision, and should be updated directly in this table (or via a
+-- future admin UI) once real pricing is decided — no code change
+-- needed either way, which is the whole point of plans being data.
+--
+-- Every new family gets the "free" plan's limits as their default
+-- entitlement automatically (see pages/api/auth/bootstrap.ts) — this
+-- is what makes max_children enforcement possible for every family,
+-- not just ones that eventually subscribe to something paid.
+insert into public.plans (id, code, name, description, max_children, library_access, custom_books_allowed, custom_book_credits, narration_allowed, premium_images_allowed, price_minor_units, currency, billing_interval, active)
+values
+  (uuid_generate_v4(), 'free', 'Free', 'Library access for one child. No custom books.', 1, true, false, null, false, false, 0, 'NGN', 'MONTHLY', true),
+  (uuid_generate_v4(), 'family', 'Family', 'Library access for up to 5 children, plus custom book credits. Price is a placeholder pending final business decision.', 5, true, true, 10, false, false, 500000, 'NGN', 'MONTHLY', true)
+on conflict (code) do nothing;

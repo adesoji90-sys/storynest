@@ -29,6 +29,34 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
+// Step 11: every family gets a default Entitlement copying the "free"
+// Plan's limits the moment it's created — this is what makes
+// max_children enforcement (see /api/children) possible for every
+// family, not just ones that eventually subscribe to something paid.
+// If the "free" plan hasn't been seeded yet (schema.sql not re-run),
+// this logs and skips rather than failing the whole signup — a family
+// with no entitlement yet just means limits aren't enforced for them
+// until the plan exists and this is reconciled, not a reason to block
+// every new account.
+async function createDefaultEntitlement(tx: Prisma.TransactionClient, familyId: string) {
+  const freePlan = await tx.plan.findUnique({ where: { code: "free" } });
+  if (!freePlan) {
+    console.error('No "free" plan found — re-run schema.sql\'s Step 11 seed. Skipping entitlement creation.');
+    return;
+  }
+  await tx.entitlement.create({
+    data: {
+      familyId,
+      maxChildren: freePlan.maxChildren,
+      libraryAccess: freePlan.libraryAccess,
+      customBooksAllowed: freePlan.customBooksAllowed,
+      customBookCreditsTotal: freePlan.customBookCredits,
+      narrationAllowed: freePlan.narrationAllowed,
+      premiumImagesAllowed: freePlan.premiumImagesAllowed,
+    },
+  });
+}
+
 type BootstrapResponse =
   | { ok: true; familyId: string }
   | { error: string };
@@ -80,6 +108,7 @@ export default async function handler(
       const family = await prisma.family.create({
         data: { members: { create: { userId, role: "OWNER" } } },
       });
+      await createDefaultEntitlement(prisma as unknown as Prisma.TransactionClient, family.id);
       return res.status(200).json({ ok: true, familyId: family.id });
     }
 
@@ -94,6 +123,7 @@ export default async function handler(
       const family = await tx.family.create({
         data: { members: { create: { userId, role: "OWNER" } } },
       });
+      await createDefaultEntitlement(tx, family.id);
       return family.id;
     });
 

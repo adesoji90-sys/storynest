@@ -40,6 +40,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { name, dateOfBirth, readingLevel, preferredLanguage, interests } = parsed.data;
 
   try {
+    // Step 11 enforcement: a family with no Entitlement row yet (e.g.
+    // signed up before the "free" plan was seeded) is treated as
+    // unlimited rather than blocked — a missing entitlement is a data
+    // gap to reconcile, not something that should lock a real family
+    // out of adding their own children.
+    const entitlement = await prisma.entitlement.findUnique({ where: { familyId: auth.familyId } });
+    if (entitlement) {
+      const activeChildCount = await prisma.child.count({ where: { familyId: auth.familyId, active: true } });
+      if (activeChildCount >= entitlement.maxChildren) {
+        return res.status(403).json({
+          error: `Your plan allows up to ${entitlement.maxChildren} ${entitlement.maxChildren === 1 ? "child" : "children"} — upgrade to add more.`,
+        });
+      }
+    }
+
     const child = await prisma.child.create({
       data: {
         familyId: auth.familyId,
