@@ -110,14 +110,54 @@ export async function getOrGenerateCharacterReferenceBase64(
 
   const pose = getPose(poseId);
   const style = getStyle(characterBible.visualStyle);
-  const prompt = `A ${style.guide} of a
+
+  // The actual fix for cross-pose clothing/appearance drift: earlier,
+  // every pose was generated as an independent from-scratch call,
+  // meaning each pose was the model's own fresh re-interpretation of
+  // the same TEXT description — the same words don't guarantee the
+  // same pixels twice, which is exactly the inconsistency this was
+  // producing. Now, if a "neutral" base reference already exists for
+  // this character, later poses are generated as EDITS of that actual
+  // image (the model can see the real reference, not just a
+  // description of it) rather than fresh generations — the same
+  // "placement, not redesign" mechanism OpenAIImageProvider already
+  // uses for scene illustration, applied here to pose generation too.
+  // The very first pose generated for a character has no base to edit
+  // from yet, so it's still a from-scratch generation — everything
+  // after that anchors back to it.
+  const baseReference =
+    poseId !== "neutral"
+      ? await prisma.characterReferenceAsset.findUnique({
+          where: { characterId_poseId: { characterId: characterBible.id, poseId: "neutral" } },
+          include: { asset: true },
+        })
+      : null;
+
+  const provider = getImageProvider();
+  let result;
+
+  if (baseReference) {
+    const { data, error } = await supabaseAdmin.storage
+      .from(baseReference.asset.bucket)
+      .download(baseReference.asset.storageKey);
+    if (error || !data) {
+      throw new Error("Couldn't retrieve the base character reference.");
+    }
+    const baseBase64 = Buffer.from(await data.arrayBuffer()).toString("base64");
+    result = await provider.generateImage({
+      prompt: `Show this exact same character now ${pose.prompt}\nMatch their face, hairstyle, outfit, and outfit colors exactly as shown in the reference — do not redesign or reinterpret their appearance in any way, only change their pose and expression.`,
+      references: [{ label: characterBible.name, base64: baseBase64 }],
+      width: 1024,
+      height: 1536,
+    });
+  } else {
+    const prompt = `A ${style.guide} of a
 ${characterBible.age ? `${characterBible.age}-year-old` : "young"} child named ${characterBible.name}.
 ${characterBible.appearance || "A cheerful, friendly child."}
 Now show them ${pose.prompt}
 Warm African-first children's book illustration context.`;
-
-  const provider = getImageProvider();
-  const result = await provider.generateImage({ prompt, width: 1024, height: 1536 });
+    result = await provider.generateImage({ prompt, width: 1024, height: 1536 });
+  }
 
   const storageKey = `${characterBible.id}_${pose.id}.png`;
   const { error: uploadError } = await supabaseAdmin.storage

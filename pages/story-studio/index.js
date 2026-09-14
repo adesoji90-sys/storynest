@@ -225,7 +225,10 @@ export default function StoryStudio() {
                 </button>
               )}
 
-              <Link href="/family" className="mt-3 inline-block font-body text-sm font-semibold text-coral_ember">
+              <Link
+                href={`/read/${publishedBookId}?childId=${childId}`}
+                className="mt-3 inline-block font-body text-sm font-semibold text-coral_ember"
+              >
                 {illustrateDone ? "Go read it →" : "Skip for now, go read it →"}
               </Link>
             </div>

@@ -118,23 +118,30 @@ export default function Reader() {
           </p>
         </header>
 
-        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-6 pb-12 text-center">
-          <h1 className="font-display text-2xl">{book.title}</h1>
-          {page.illustrationUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- signed
-            // URLs from a private bucket, not something next/image's
-            // static-optimization/remote-pattern config is set up for.
-            <img
-              src={page.illustrationUrl}
-              alt=""
-              className="mt-6 w-full max-w-sm rounded-cloth shadow-sm"
-            />
-          )}
-          <p className="mt-8 font-body text-xl leading-relaxed">{page.text}</p>
+        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-stretch gap-6 px-6 pb-8 md:flex-row md:items-center">
+          <div className="relative flex flex-1 items-center justify-center rounded-cloth bg-white p-4 shadow-sm md:aspect-square">
+            {page.illustrationUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- signed
+              // URLs from a private bucket, not something next/image's
+              // static-optimization/remote-pattern config is set up for.
+              <img src={page.illustrationUrl} alt="" className="max-h-96 w-full rounded-cloth object-contain md:max-h-none" />
+            ) : (
+              <div className="flex h-64 w-full items-center justify-center rounded-cloth bg-ivory_cloth text-charcoal/30 md:h-full">
+                <span className="font-body text-sm">No illustration yet</span>
+              </div>
+            )}
+            <span className="absolute bottom-3 left-4 font-body text-xs text-charcoal/30">{pageIndex + 1}</span>
+          </div>
 
-          {isLast && justCompleted && (
-            <p className="mt-8 font-body font-bold text-leaf">🎉 The End — great reading!</p>
-          )}
+          <div className="relative flex flex-1 flex-col justify-center rounded-cloth bg-white p-6 text-center shadow-sm md:p-10 md:text-left">
+            {isFirst && <h1 className="mb-4 font-display text-2xl">{book.title}</h1>}
+            <p className="font-body text-xl leading-relaxed">{page.text}</p>
+
+            {isLast && justCompleted && (
+              <p className="mt-6 font-body font-bold text-leaf">🎉 The End — great reading!</p>
+            )}
+            <span className="absolute bottom-3 right-4 font-body text-xs text-charcoal/30">{pageIndex + 1}</span>
+          </div>
         </div>
 
         <div className="flex items-center justify-between px-6 pb-8">
