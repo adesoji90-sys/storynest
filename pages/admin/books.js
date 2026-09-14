@@ -231,13 +231,16 @@ function emptyForm() {
     }
   }
 
+  const [narrationTone, setNarrationTone] = useState("gentle");
+
   async function narrateBook(book) {
     setNarratingBookId(book.id);
     setError("");
     try {
       const res = await fetch(`/api/admin/books/${book.id}/narrate`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ tone: narrationTone }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't narrate the book.");
@@ -304,6 +307,20 @@ function emptyForm() {
           </p>
 
           {error && <p className="mt-4 font-body text-sm text-coral_ember">{error}</p>}
+
+          <div className="mt-4 flex items-center gap-3 rounded-cloth bg-white p-3 shadow-sm">
+            <label className="font-body text-sm font-semibold text-charcoal/60">Narration voice:</label>
+            <select
+              value={narrationTone}
+              onChange={(e) => setNarrationTone(e.target.value)}
+              className="rounded-cloth border border-charcoal/15 bg-white px-3 py-1.5 font-body text-sm"
+            >
+              <option value="gentle">Warm & Gentle</option>
+              <option value="bright">Bright & Energetic</option>
+              <option value="classic">Classic Storyteller</option>
+            </select>
+            <span className="font-body text-xs text-charcoal/40">Used the next time you click 🔊 Narrate on any book below</span>
+          </div>
 
           <form onSubmit={handleSubmit} className="mt-8 rounded-cloth bg-white p-6 shadow-sm">
             <h2 className="font-display text-xl">New book</h2>

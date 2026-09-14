@@ -45,6 +45,7 @@ export default function StoryStudio() {
   const [narrating, setNarrating] = useState(false);
   const [narrateDone, setNarrateDone] = useState(false);
   const [narrateError, setNarrateError] = useState("");
+  const [narrationTone, setNarrationTone] = useState("gentle");
 
   useEffect(() => {
     async function checkSession() {
@@ -240,7 +241,8 @@ export default function StoryStudio() {
     try {
       const res = await fetch(`/api/books/${publishedBookId}/narrate`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ tone: narrationTone }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't narrate the book.");
@@ -317,13 +319,32 @@ export default function StoryStudio() {
               {narrateDone ? (
                 <p className="mt-3 font-body font-semibold text-leaf">✓ Narrated!</p>
               ) : (
-                <button
-                  onClick={handleNarrate}
-                  disabled={narrating}
-                  className="mt-3 w-full rounded-cloth border-2 border-indigo_night px-5 py-2.5 font-body font-bold text-indigo_night disabled:opacity-50"
-                >
-                  {narrating ? "Narrating… this can take a minute" : "🔊 Add narration"}
-                </button>
+                <>
+                  <p className="mt-3 font-body text-xs font-semibold text-charcoal/50">Narration voice</p>
+                  <div className="mt-1 grid grid-cols-3 gap-2">
+                    {[
+                      { id: "gentle", label: "Warm & Gentle" },
+                      { id: "bright", label: "Bright & Energetic" },
+                      { id: "classic", label: "Classic Storyteller" },
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setNarrationTone(t.id)}
+                        className={`rounded-cloth border-2 px-2 py-2 font-body text-xs font-semibold ${narrationTone === t.id ? "border-indigo_night bg-indigo_night/5" : "border-charcoal/15"}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleNarrate}
+                    disabled={narrating}
+                    className="mt-2 w-full rounded-cloth border-2 border-indigo_night px-5 py-2.5 font-body font-bold text-indigo_night disabled:opacity-50"
+                  >
+                    {narrating ? "Narrating… this can take a minute" : "🔊 Add narration"}
+                  </button>
+                </>
               )}
 
               <Link

@@ -9,9 +9,15 @@ export const config = {
 };
 
 import type { NextApiRequest, NextApiResponse } from "next";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authAdmin";
 import { narratePage } from "@/lib/narration";
+import { NARRATION_TONES, DEFAULT_NARRATION_TONE } from "@/lib/ai/NarrationProvider";
+
+const NarrateSchema = z.object({
+  tone: z.enum(Object.keys(NARRATION_TONES) as [string, ...string[]]).optional(),
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -28,6 +34,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "Invalid book id." });
   }
 
+  const parsed = NarrateSchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid tone selection." });
+  }
+
   const book = await prisma.book.findFirst({
     where: { id, type: "CURATED" },
     include: { pages: { orderBy: { pageNumber: "asc" } } },
@@ -37,6 +48,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (book.pages.length === 0) {
     return res.status(400).json({ error: "This book has no pages yet." });
+  }
+
+  // Same lock-in-on-first-narration logic as the family-scoped route —
+  // see Book.narrationVoice's own schema comment.
+  let voiceId = book.narrationVoice;
+  if (!voiceId) {
+    const tone = parsed.data.tone || DEFAULT_NARRATION_TONE;
+    voiceId = NARRATION_TONES[tone].voiceId;
+    await prisma.book.update({ where: { id: book.id }, data: { narrationVoice: voiceId } });
   }
 
   try {
@@ -54,6 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await narratePage({
           pageId: page.id,
           pageText: page.text,
+          voiceId,
           familyId: null,
           userId: auth.userId,
           bookId: book.id,

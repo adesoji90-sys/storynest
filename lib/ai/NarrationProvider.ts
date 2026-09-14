@@ -9,9 +9,22 @@
 // children's book narrated in a voice that noticeably shifts partway
 // through is a worse experience than a slightly more rigid but
 // CONSISTENT voice, this uses tts-1 — trading away the "instructions"
-// tone-steering parameter (tts-1 doesn't support it) for reliability
-// across a whole book's worth of separate per-page calls.
+// tone-steering parameter (tts-1 doesn't support it at all) for
+// reliability across a whole book's worth of separate per-page calls.
 //
+// TONE SELECTION, done differently as a result: since tts-1 can't
+// steer tone via instructions, "tone" here means picking one of three
+// DISTINCT VOICE IDS instead — each with a genuinely different
+// character per OpenAI's own voice descriptions (cross-checked against
+// several independent sources, not just one). Limited to exactly three
+// by request, chosen specifically for children's-book narration:
+export const NARRATION_TONES: Record<string, { label: string; voiceId: string }> = {
+  gentle: { label: "Warm & Gentle", voiceId: "shimmer" }, // soft, gentle — bedtime-story register
+  bright: { label: "Bright & Energetic", voiceId: "nova" }, // energetic, friendly — upbeat/adventure register
+  classic: { label: "Classic Storyteller", voiceId: "fable" }, // articulate, storytelling-associated by OpenAI's own naming and documented character
+};
+export const DEFAULT_NARRATION_TONE = "gentle";
+
 // COMPLIANCE NOTE, not optional: OpenAI's usage policy requires
 // disclosing to end users that a TTS voice is AI-generated, not human.
 // This provider doesn't enforce that itself (it just generates audio),
@@ -31,7 +44,6 @@ import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 import type { NarrationProvider, NarrationRequest, NarrationResult } from "./types";
 
 const TTS_MODEL = "tts-1";
-const DEFAULT_VOICE = "coral"; // warm, positive tone per OpenAI's own example usage
 const WORDS_PER_MINUTE = 130;
 
 export class OpenAITTSProvider implements NarrationProvider {
@@ -44,7 +56,7 @@ export class OpenAITTSProvider implements NarrationProvider {
       },
       body: JSON.stringify({
         model: TTS_MODEL,
-        voice: request.voiceId || DEFAULT_VOICE,
+        voice: request.voiceId || NARRATION_TONES[DEFAULT_NARRATION_TONE]!.voiceId,
         input: request.text,
         // tts-1 does not support "instructions" (that's a
         // gpt-4o-mini-tts-only parameter) — deliberately omitted here,

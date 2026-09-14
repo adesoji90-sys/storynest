@@ -10,9 +10,15 @@ export const config = {
 };
 
 import type { NextApiRequest, NextApiResponse } from "next";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
 import { narratePage } from "@/lib/narration";
+import { NARRATION_TONES, DEFAULT_NARRATION_TONE } from "@/lib/ai/NarrationProvider";
+
+const NarrateSchema = z.object({
+  tone: z.enum(Object.keys(NARRATION_TONES) as [string, ...string[]]).optional(),
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -29,6 +35,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(auth.status).json({ error: auth.error });
   }
 
+  const parsed = NarrateSchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid tone selection." });
+  }
+
   const book = await prisma.book.findFirst({
     where: { id: bookId, familyId: auth.familyId, type: "CUSTOM" },
     include: { pages: { orderBy: { pageNumber: "asc" } } },
@@ -38,6 +49,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (book.pages.length === 0) {
     return res.status(400).json({ error: "This book has no pages yet." });
+  }
+
+  // Locked in the FIRST time this book is narrated, then always reused
+  // — see the schema field's own comment for why: re-narrating after
+  // adding pages must never give the new pages a different voice than
+  // the existing ones already have.
+  let voiceId = book.narrationVoice;
+  if (!voiceId) {
+    const tone = parsed.data.tone || DEFAULT_NARRATION_TONE;
+    voiceId = NARRATION_TONES[tone].voiceId;
+    await prisma.book.update({ where: { id: book.id }, data: { narrationVoice: voiceId } });
   }
 
   const job = await prisma.generationJob.create({
@@ -69,6 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await narratePage({
           pageId: page.id,
           pageText: page.text,
+          voiceId,
           familyId: auth.familyId,
           userId: auth.userId,
           bookId: book.id,

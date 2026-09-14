@@ -419,6 +419,15 @@ model Book {
   // illustration/narration — this is real, if cheap, server compute,
   // not something that should happen silently on every book).
   pdfAssetId      String?    @map("pdf_asset_id") @db.Uuid
+  // Set the FIRST time narration is generated for this book and never
+  // changed after — if a parent adds more pages later and re-triggers
+  // narration, this is what makes the new pages use the SAME voice as
+  // the existing ones, rather than whichever tone happens to be
+  // selected in the UI at that later moment. Without this, re-narrating
+  // could recreate the exact "voice changes partway through the book"
+  // problem this whole tone-selection feature exists to prevent — just
+  // via a different tone choice instead of model-level drift.
+  narrationVoice  String?    @map("narration_voice")
   type            BookType
   status          BookStatus @default(DRAFT)
   familyId        String?    @map("family_id") @db.Uuid

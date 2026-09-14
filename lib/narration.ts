@@ -21,12 +21,13 @@ const supabaseAdmin = createClient(
 export async function narratePage(params: {
   pageId: string;
   pageText: string;
+  voiceId?: string;
   familyId: string | null;
   userId: string;
   bookId: string;
 }) {
   const provider = getNarrationProvider();
-  const result = await provider.generateNarration({ text: params.pageText });
+  const result = await provider.generateNarration({ text: params.pageText, voiceId: params.voiceId });
 
   const storageKey = `${params.bookId}_page_${params.pageId}.mp3`;
   const { error: uploadError } = await supabaseAdmin.storage
