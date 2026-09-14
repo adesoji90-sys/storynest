@@ -392,3 +392,24 @@ values
   (uuid_generate_v4(), 'reader', 'Reader', 'Library access for one child. No custom books. Price is a placeholder pending final business decision.', 1, true, false, null, false, false, 150000, 'NGN', 'MONTHLY', true, now()),
   (uuid_generate_v4(), 'family', 'Family', 'Library access for up to 5 children, plus custom book credits. Price is a placeholder pending final business decision.', 5, true, true, 10, false, false, 500000, 'NGN', 'MONTHLY', true, now())
 on conflict (code) do nothing;
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 15: IMAGE GENERATION — storage buckets
+-- ─────────────────────────────────────────────────────────────
+-- Both private, same reasoning as custom-characters/story-pages above:
+-- a character reference or page illustration for a personalized book
+-- can depict a real child's implied likeness (age, described
+-- appearance), so nothing here is public. Access is via signed URLs
+-- issued server-side, same pattern as every other private bucket in
+-- this file.
+insert into storage.buckets (id, name, public)
+values ('character-references', 'character-references', false)
+on conflict (id) do update set public = false;
+
+insert into storage.buckets (id, name, public)
+values ('book-illustrations', 'book-illustrations', false)
+on conflict (id) do update set public = false;
+
+-- No public storage.objects policy for either — service-role key
+-- (server-side only) bypasses RLS, which is the only way in, same as
+-- custom-characters and story-pdfs.

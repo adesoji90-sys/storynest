@@ -22,3 +22,19 @@ export function estimateStoryGenerationCostKobo(inputTokens: number | null, outp
   const outputCostUsd = ((outputTokens || 0) / 1_000_000) * CLAUDE_COST_PER_MILLION_OUTPUT_TOKENS_USD;
   return Math.round((inputCostUsd + outputCostUsd) * USD_TO_NGN_KOBO_RATE);
 }
+
+// Sourced from lib/imageConfig.js's own comment (gpt-image-1.5 pricing at
+// 1024x1024, checked against OpenAI's pricing page when that file was
+// written) rather than a fresh guess — real image-generation cost is
+// per-image at a given quality tier, not per-token, so this doesn't need
+// input/output token counts the way story generation does.
+const IMAGE_COST_USD: Record<string, number> = {
+  low: 0.009,
+  medium: 0.034,
+  high: 0.133,
+};
+
+export function estimateImageGenerationCostKobo(quality: string): number {
+  const costUsd = IMAGE_COST_USD[quality] ?? IMAGE_COST_USD.medium ?? 0.034;
+  return Math.round(costUsd * USD_TO_NGN_KOBO_RATE);
+}

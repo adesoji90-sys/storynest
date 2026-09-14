@@ -15,8 +15,21 @@
 // sessionId is what /api/read/[bookId]/progress updates as pages turn.
 
 import type { NextApiRequest, NextApiResponse } from "next";
+import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
+);
+
+// Same 30-day signed-URL TTL and reasoning as the old pipeline's
+// generate-illustrations.js: long enough that a parent returning to a
+// book weeks later doesn't hit an expired link, short enough not to
+// leave an indefinite-lifetime link floating around for content that
+// can depict a real child's implied likeness.
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -46,12 +59,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       select: {
         id: true,
         title: true,
-        pages: { orderBy: { pageNumber: "asc" }, select: { id: true, pageNumber: true, text: true } },
+        pages: {
+          orderBy: { pageNumber: "asc" },
+          select: {
+            id: true,
+            pageNumber: true,
+            text: true,
+            illustrationAsset: { select: { bucket: true, storageKey: true } },
+          },
+        },
       },
     });
     if (!book) {
       return res.status(404).json({ error: "Book not found." });
     }
+
+    // Resolved to a signed URL here, not left as a bucket/key pair —
+    // the reader page just needs an <img src>, and the private-bucket
+    // access check belongs entirely server-side, not something the
+    // client should ever need to know how to do itself.
+    const pagesWithUrls = await Promise.all(
+      book.pages.map(async (page: any) => {
+        if (!page.illustrationAsset) {
+          return { id: page.id, pageNumber: page.pageNumber, text: page.text, illustrationUrl: null };
+        }
+        const { data } = await supabaseAdmin.storage
+          .from(page.illustrationAsset.bucket)
+          .createSignedUrl(page.illustrationAsset.storageKey, SIGNED_URL_TTL_SECONDS);
+        return {
+          id: page.id,
+          pageNumber: page.pageNumber,
+          text: page.text,
+          illustrationUrl: data?.signedUrl || null,
+        };
+      })
+    );
 
     const progress = await prisma.readingProgress.upsert({
       where: { childId_bookId: { childId, bookId } },
@@ -64,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     return res.status(200).json({
-      book: { id: book.id, title: book.title, pages: book.pages },
+      book: { id: book.id, title: book.title, pages: pagesWithUrls },
       progress: {
         currentPage: progress.currentPage,
         percentage: progress.percentage,

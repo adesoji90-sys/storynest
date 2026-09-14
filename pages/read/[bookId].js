@@ -120,6 +120,16 @@ export default function Reader() {
 
         <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-6 pb-12 text-center">
           <h1 className="font-display text-2xl">{book.title}</h1>
+          {page.illustrationUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- signed
+            // URLs from a private bucket, not something next/image's
+            // static-optimization/remote-pattern config is set up for.
+            <img
+              src={page.illustrationUrl}
+              alt=""
+              className="mt-6 w-full max-w-sm rounded-cloth shadow-sm"
+            />
+          )}
           <p className="mt-8 font-body text-xl leading-relaxed">{page.text}</p>
 
           {isLast && justCompleted && (

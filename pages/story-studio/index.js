@@ -28,6 +28,9 @@ export default function StoryStudio() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftPages, setDraftPages] = useState([]);
   const [publishedBookId, setPublishedBookId] = useState(null);
+  const [illustrating, setIllustrating] = useState(false);
+  const [illustrateDone, setIllustrateDone] = useState(false);
+  const [illustrateError, setIllustrateError] = useState("");
 
   useEffect(() => {
     async function checkSession() {
@@ -158,6 +161,24 @@ export default function StoryStudio() {
     }
   }
 
+  async function handleIllustrate() {
+    setIllustrateError("");
+    setIllustrating(true);
+    try {
+      const res = await fetch(`/api/books/${publishedBookId}/illustrate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't illustrate the book.");
+      setIllustrateDone(true);
+    } catch (err) {
+      setIllustrateError(err.message);
+    } finally {
+      setIllustrating(false);
+    }
+  }
+
   if (session === undefined) return null;
 
   return (
@@ -189,8 +210,23 @@ export default function StoryStudio() {
             <div className="mt-8 rounded-cloth bg-white p-6 text-center shadow-sm">
               <p className="font-display text-2xl">🎉 Published!</p>
               <p className="mt-2 font-body text-charcoal/70">"{draftTitle}" is ready to read.</p>
-              <Link href="/family" className="mt-4 inline-block rounded-cloth bg-coral_ember px-5 py-2.5 font-body font-bold text-white">
-                Go read it →
+
+              {illustrateError && <p className="mt-3 font-body text-sm text-coral_ember">{illustrateError}</p>}
+
+              {illustrateDone ? (
+                <p className="mt-4 font-body font-semibold text-leaf">✓ Illustrated!</p>
+              ) : (
+                <button
+                  onClick={handleIllustrate}
+                  disabled={illustrating}
+                  className="mt-4 w-full rounded-cloth bg-indigo_night px-5 py-2.5 font-body font-bold text-white disabled:opacity-50"
+                >
+                  {illustrating ? "Illustrating… this can take a minute" : "🎨 Illustrate this book"}
+                </button>
+              )}
+
+              <Link href="/family" className="mt-3 inline-block font-body text-sm font-semibold text-coral_ember">
+                {illustrateDone ? "Go read it →" : "Skip for now, go read it →"}
               </Link>
             </div>
           ) : phase === "reviewing" ? (

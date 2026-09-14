@@ -27,19 +27,27 @@ export interface StoryProvider {
 
 // Not implemented yet — defined now so Step 15 (image generation) has
 // an interface to build against instead of inventing one from scratch
-// mid-feature. Shape is a best guess based on Section 14's description
-// (a prompt plus a character reference for consistency) and will very
-// likely need adjusting once a real image provider is actually wired
-// up — this is a starting point, not a locked contract.
+// mid-feature. Reference images are passed as already-resolved bytes
+// (the caller fetches them from storage first), and the result is raw
+// bytes too, not a storage key — the provider's job is generating an
+// image, not deciding where it's saved. Bucket names and file-naming
+// conventions differ per use case (a character reference vs. a page
+// illustration), so that decision belongs to the caller, which already
+// has the database context to make it, not to a generic AI provider.
+export interface ImageReference {
+  label: string;
+  base64: string;
+}
+
 export interface ImageGenerationRequest {
   prompt: string;
-  characterReferenceAssetIds?: string[];
-  width?: number;
-  height?: number;
+  references?: ImageReference[]; // omit for a from-scratch generation; include for character-consistent placement into a scene
+  width: number;
+  height: number;
 }
 
 export interface ImageGenerationResult {
-  assetStorageKey: string;
+  base64: string;
   model: string;
 }
 

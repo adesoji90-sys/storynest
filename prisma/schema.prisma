@@ -172,6 +172,7 @@ model Child {
   readingProgress ReadingProgress[]
   readingSessions ReadingSession[]
   stories         Story[]
+  characterBibles CharacterBible[]
 
   @@map("children")
   @@schema("public")
@@ -332,6 +333,14 @@ enum AssetKind {
 model CharacterBible {
   id                  String   @id @default(uuid()) @db.Uuid
   familyId            String?  @map("family_id") @db.Uuid
+  // Links a bible to the specific child it represents (a family's own
+  // protagonist reference), separate from familyId — a family can have
+  // several children, each needing their own distinct character, not
+  // one shared bible per family. Nullable because an admin-authored
+  // curated character (Section 11's shared library) has no specific
+  // child at all, same reasoning as Story.childId being nullable for
+  // the same admin-vs-personalized distinction.
+  childId             String?  @map("child_id") @db.Uuid
   name                String
   age                 Int?
   gender              String?
@@ -347,6 +356,7 @@ model CharacterBible {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   family          Family?                   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  child           Child?                    @relation(fields: [childId], references: [id], onDelete: SetNull)
   referenceAssets CharacterReferenceAsset[]
   bookLinks       BookCharacter[]
 
