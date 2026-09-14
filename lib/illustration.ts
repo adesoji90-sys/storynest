@@ -21,7 +21,7 @@ import { getImageProvider } from "@/lib/ai/ImageProvider";
 import { estimateImageGenerationCostKobo } from "@/lib/ai/costEstimate";
 import { getStyle } from "@/lib/ai/imageStyles";
 import { getPose, selectPose } from "@/lib/ai/characterPoses";
-import { IMAGE_QUALITY } from "@/lib/imageConfig";
+import { IMAGE_MODEL, IMAGE_QUALITY } from "@/lib/imageConfig";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -29,7 +29,7 @@ const supabaseAdmin = createClient(
 );
 
 interface UsageLogParams {
-  familyId: string;
+  familyId: string | null;
   userId: string | null;
   bookId: string | null;
   pageId: string | null;
@@ -44,7 +44,14 @@ async function logImageUsage(params: UsageLogParams) {
       pageId: params.pageId,
       operationType: "IMAGE_GENERATION",
       provider: "openai",
-      model: "gpt-image-1.5",
+      // Was hardcoded to "gpt-image-1.5" — a real, separate bug found
+      // while making this change: the actual configured model was
+      // upgraded to gpt-image-2 in an earlier round, but this literal
+      // string was never updated to match, so every usage record since
+      // then has logged the wrong model name. Reading it from the same
+      // config the provider itself uses means this can't drift out of
+      // sync again the same way.
+      model: IMAGE_MODEL,
       estimatedCostMinorUnits: estimateImageGenerationCostKobo(IMAGE_QUALITY),
       currency: "NGN",
       status: "success",
@@ -73,6 +80,34 @@ export async function getOrCreateChildCharacterBible(childId: string, familyId: 
   });
 }
 
+// Curated (admin-authored) books have no child and no family to derive
+// a character from — cached per BOOK instead, via the BookCharacter
+// join table (checking that, not CharacterBible.childId, since a
+// generic character's childId is null and would otherwise match every
+// other generic character across every curated book, not just this
+// one). "Tobi" is a placeholder name, not meant to match whatever name
+// the book's own text happens to use for its character — it only needs
+// to keep the image prompt's "a child named X" phrasing natural and
+// consistent across a book's pages, not to be narratively accurate.
+// Giving admins their own way to name/describe this character is a
+// real, natural improvement for later, not built in this pass.
+export async function getOrCreateGenericBookCharacterBible(bookId: string, bookTitle: string, category: string | null) {
+  const existingLink = await prisma.bookCharacter.findFirst({ where: { bookId }, include: { character: true } });
+  if (existingLink) return existingLink.character;
+
+  const character = await prisma.characterBible.create({
+    data: {
+      childId: null,
+      familyId: null,
+      name: "Tobi",
+      appearance: `A warm, cheerful child character suited to a story called "${bookTitle}"${category ? `, in the ${category} category` : ""}.`,
+      visualStyle: "painterly",
+    },
+  });
+  await prisma.bookCharacter.create({ data: { bookId, characterId: character.id, role: "main" } });
+  return character;
+}
+
 // Returns base64 bytes ready to pass as a reference to the image
 // provider — generating once per (character, pose) and caching (via
 // CharacterReferenceAsset) on first call, downloading the cached file
@@ -89,7 +124,7 @@ export async function getOrCreateChildCharacterBible(childId: string, familyId: 
 // used yet.
 export async function getOrGenerateCharacterReferenceBase64(
   characterBible: { id: string; name: string; age: number | null; appearance: string | null; visualStyle: string },
-  familyId: string,
+  familyId: string | null,
   poseId: string = "neutral"
 ): Promise<string> {
   const existing = await prisma.characterReferenceAsset.findUnique({
@@ -178,7 +213,51 @@ Warm African-first children's book illustration context.`;
   return result.base64;
 }
 
-// Generates and saves the illustration for exactly one page — callers
+// Generates a book's cover ART (once, cached via Book.coverAssetId) —
+// deliberately text-free. The actual title and author are rendered as
+// real HTML/CSS text over this image wherever a cover is shown, not
+// baked into the generated pixels — AI image models still make real
+// mistakes rendering embedded text (misspellings, garbled letters,
+// inconsistent fonts), which is a bad tradeoff for the one piece of
+// text on a cover that absolutely has to be readable and correct.
+// Separating "art" from "typography" is also how virtually every real
+// book-cover or print-on-demand tool works, not a shortcut particular
+// to this app.
+export async function generateBookCover(params: {
+  bookId: string;
+  title: string;
+  characterBible: { name: string; appearance: string | null; visualStyle: string } | null;
+  familyId: string | null; // null for a curated/admin book — AIUsageRecord.familyId is nullable now specifically to make this legitimate, not a gap being worked around
+  userId: string | null;
+}) {
+  const book = await prisma.book.findUnique({ where: { id: params.bookId }, select: { coverAssetId: true } });
+  if (book?.coverAssetId) return; // already has one — never regenerate silently
+
+  const style = getStyle(params.characterBible?.visualStyle || "painterly");
+  const prompt = `A children's book cover ILLUSTRATION for a story called "${params.title}".
+${params.characterBible ? `Featuring the main character, ${params.characterBible.name}: ${params.characterBible.appearance || "a cheerful, friendly child"}.` : "An inviting, evocative scene capturing the spirit of the story."}
+${style.guide}
+IMPORTANT: absolutely no text, letters, words, or writing anywhere in the image — this is artwork only, title text is added separately afterward. Leave open, relatively uncluttered space in the upper third of the composition where a title will be placed on top later.`;
+
+  const provider = getImageProvider();
+  const result = await provider.generateImage({ prompt, width: 1024, height: 1536 });
+
+  const storageKey = `${params.bookId}_cover.png`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("book-covers")
+    .upload(storageKey, Buffer.from(result.base64, "base64"), { contentType: "image/png", upsert: true });
+  if (uploadError) {
+    throw new Error("Couldn't save the generated cover.");
+  }
+
+  const asset = await prisma.asset.create({
+    data: { kind: "COVER", bucket: "book-covers", storageKey, mimeType: "image/png" },
+  });
+  await prisma.book.update({ where: { id: params.bookId }, data: { coverAssetId: asset.id } });
+  await logImageUsage({ familyId: params.familyId, userId: params.userId, bookId: params.bookId, pageId: null });
+
+  return asset;
+}
 // loop over a book's pages and call this once per page (see
 // /api/books/[bookId]/illustrate), never touching another page's
 // existing illustration, matching Section 6's independent-regeneration
@@ -192,7 +271,7 @@ export async function illustratePage(params: {
   pageId: string;
   pageText: string;
   characterBible: { id: string; name: string; age: number | null; appearance: string | null; visualStyle: string };
-  familyId: string;
+  familyId: string | null;
   userId: string;
   bookId: string;
 }) {

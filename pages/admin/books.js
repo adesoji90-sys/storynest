@@ -209,6 +209,64 @@ function emptyForm() {
     }
   }
 
+  const [illustratingBookId, setIllustratingBookId] = useState(null);
+  const [narratingBookId, setNarratingBookId] = useState(null);
+  const [pdfGeneratingBookId, setPdfGeneratingBookId] = useState(null);
+
+  async function illustrateBook(book) {
+    setIllustratingBookId(book.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/books/${book.id}/illustrate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't illustrate the book.");
+      setBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, illustrated: true } : b)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIllustratingBookId(null);
+    }
+  }
+
+  async function narrateBook(book) {
+    setNarratingBookId(book.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/books/${book.id}/narrate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't narrate the book.");
+      setBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, narrated: true } : b)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setNarratingBookId(null);
+    }
+  }
+
+  async function generatePdf(book) {
+    setPdfGeneratingBookId(book.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/books/${book.id}/generate-pdf`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't generate the PDF.");
+      setBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, pdfUrl: data.pdfUrl } : b)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPdfGeneratingBookId(null);
+    }
+  }
+
   if (session === undefined || authorized === null) return null;
 
   if (authorized === false) {
@@ -467,12 +525,45 @@ function emptyForm() {
                             <Badge>{book._count?.pages ?? "?"} pages</Badge>
                           </div>
                         </div>
-                        <button
-                          onClick={() => togglePublish(book)}
-                          className="shrink-0 rounded-cloth border border-charcoal/15 px-4 py-2 font-body text-sm font-semibold"
-                        >
-                          {book.status === "PUBLISHED" ? "Unpublish" : "Publish"}
-                        </button>
+                        <div className="flex shrink-0 flex-col gap-2">
+                          <button
+                            onClick={() => illustrateBook(book)}
+                            disabled={illustratingBookId === book.id}
+                            className="rounded-cloth border border-charcoal/15 px-4 py-2 font-body text-sm font-semibold disabled:opacity-50"
+                          >
+                            {illustratingBookId === book.id ? "Illustrating…" : "🎨 Illustrate"}
+                          </button>
+                          <button
+                            onClick={() => narrateBook(book)}
+                            disabled={narratingBookId === book.id}
+                            className="rounded-cloth border border-charcoal/15 px-4 py-2 font-body text-sm font-semibold disabled:opacity-50"
+                          >
+                            {narratingBookId === book.id ? "Narrating…" : "🔊 Narrate"}
+                          </button>
+                          <button
+                            onClick={() => generatePdf(book)}
+                            disabled={pdfGeneratingBookId === book.id}
+                            className="rounded-cloth border border-charcoal/15 px-4 py-2 font-body text-sm font-semibold disabled:opacity-50"
+                          >
+                            {pdfGeneratingBookId === book.id ? "Generating…" : "📄 Generate PDF"}
+                          </button>
+                          {book.pdfUrl && (
+                            <a
+                              href={book.pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-center font-body text-sm font-semibold text-indigo_night"
+                            >
+                              View PDF →
+                            </a>
+                          )}
+                          <button
+                            onClick={() => togglePublish(book)}
+                            className="rounded-cloth border border-charcoal/15 px-4 py-2 font-body text-sm font-semibold"
+                          >
+                            {book.status === "PUBLISHED" ? "Unpublish" : "Publish"}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

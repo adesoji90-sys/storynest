@@ -59,6 +59,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       select: {
         id: true,
         title: true,
+        authorName: true,
+        coverAsset: { select: { bucket: true, storageKey: true } },
         pages: {
           orderBy: { pageNumber: "asc" },
           select: {
@@ -66,6 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             pageNumber: true,
             text: true,
             illustrationAsset: { select: { bucket: true, storageKey: true } },
+            narrationAsset: { select: { bucket: true, storageKey: true } },
           },
         },
       },
@@ -74,24 +77,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Book not found." });
     }
 
+    // Cover lives in a PUBLIC bucket (see schema.sql's Step 15b comment
+    // for why — it's cover art, not a page depicting a real child) so a
+    // plain public URL is enough here; no signed-URL expiry to manage,
+    // unlike page illustrations below.
+    const coverUrl = book.coverAsset
+      ? supabaseAdmin.storage.from(book.coverAsset.bucket).getPublicUrl(book.coverAsset.storageKey).data.publicUrl
+      : null;
+
     // Resolved to a signed URL here, not left as a bucket/key pair —
     // the reader page just needs an <img src>, and the private-bucket
     // access check belongs entirely server-side, not something the
     // client should ever need to know how to do itself.
     const pagesWithUrls = await Promise.all(
       book.pages.map(async (page: any) => {
-        if (!page.illustrationAsset) {
-          return { id: page.id, pageNumber: page.pageNumber, text: page.text, illustrationUrl: null };
-        }
-        const { data } = await supabaseAdmin.storage
-          .from(page.illustrationAsset.bucket)
-          .createSignedUrl(page.illustrationAsset.storageKey, SIGNED_URL_TTL_SECONDS);
-        return {
-          id: page.id,
-          pageNumber: page.pageNumber,
-          text: page.text,
-          illustrationUrl: data?.signedUrl || null,
-        };
+        const illustrationUrl = page.illustrationAsset
+          ? (await supabaseAdmin.storage.from(page.illustrationAsset.bucket).createSignedUrl(page.illustrationAsset.storageKey, SIGNED_URL_TTL_SECONDS)).data?.signedUrl || null
+          : null;
+        const narrationUrl = page.narrationAsset
+          ? (await supabaseAdmin.storage.from(page.narrationAsset.bucket).createSignedUrl(page.narrationAsset.storageKey, SIGNED_URL_TTL_SECONDS)).data?.signedUrl || null
+          : null;
+        return { id: page.id, pageNumber: page.pageNumber, text: page.text, illustrationUrl, narrationUrl };
       })
     );
 
@@ -106,7 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     return res.status(200).json({
-      book: { id: book.id, title: book.title, pages: pagesWithUrls },
+      book: { id: book.id, title: book.title, authorName: book.authorName, coverUrl, pages: pagesWithUrls },
       progress: {
         currentPage: progress.currentPage,
         percentage: progress.percentage,

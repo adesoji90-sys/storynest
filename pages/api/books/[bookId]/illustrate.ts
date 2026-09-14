@@ -21,7 +21,7 @@ export const config = {
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
-import { getOrCreateChildCharacterBible, getOrGenerateCharacterReferenceBase64, illustratePage } from "@/lib/illustration";
+import { getOrCreateChildCharacterBible, getOrGenerateCharacterReferenceBase64, generateBookCover, illustratePage } from "@/lib/illustration";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -79,6 +79,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // processed, not just whichever pose the first page happens to
     // select.
     await getOrGenerateCharacterReferenceBase64(characterBible, auth.familyId, "neutral");
+
+    // Cover generation reuses the same character reference and is
+    // skipped entirely if the book already has one (see
+    // generateBookCover's own guard) — safe to call every time this
+    // route runs, including a retry after a partial page failure.
+    await generateBookCover({
+      bookId: book.id,
+      title: book.title,
+      characterBible,
+      familyId: auth.familyId,
+      userId: auth.userId,
+    });
 
     const results: { pageId: string; ok: boolean; error?: string }[] = [];
     // Sequential, not concurrent — the old pipeline's own hard-learned

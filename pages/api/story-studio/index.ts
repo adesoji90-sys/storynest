@@ -18,6 +18,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
+import { checkCustomBooksAllowed } from "@/lib/checkCustomBooksAllowed";
 
 const BriefSchema = z.object({
   childId: z.string().uuid(),
@@ -37,16 +38,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === "GET") {
     try {
-      const stories = await prisma.story.findMany({
-        where: { familyId: auth.familyId, status: { not: "STORY_APPROVED" } },
-        orderBy: { updatedAt: "desc" },
-        include: {
-          child: { select: { id: true, name: true } },
-          book: { select: { id: true, title: true } },
-          versions: { orderBy: { versionNumber: "desc" }, take: 1 },
-        },
-      });
-      return res.status(200).json({ stories });
+      const [stories, entitlement] = await Promise.all([
+        prisma.story.findMany({
+          where: { familyId: auth.familyId, status: { not: "STORY_APPROVED" } },
+          orderBy: { updatedAt: "desc" },
+          include: {
+            child: { select: { id: true, name: true } },
+            book: { select: { id: true, title: true } },
+            versions: { orderBy: { versionNumber: "desc" }, take: 1 },
+          },
+        }),
+        prisma.entitlement.findUnique({ where: { familyId: auth.familyId }, select: { customBooksAllowed: true } }),
+      ]);
+      // No entitlement row yet is treated as "allowed" — same
+      // "missing entitlement means unrestricted, not blocked"
+      // philosophy already used for max_children in /api/children,
+      // rather than a family with a data gap being locked out of a
+      // feature their actual plan may well include.
+      return res.status(200).json({ stories, customBooksAllowed: entitlement?.customBooksAllowed ?? true });
     } catch (err) {
       console.error("story-studio GET error:", err);
       return res.status(500).json({ error: "Unexpected server error." });
@@ -63,6 +72,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const child = await prisma.child.findFirst({ where: { id: childId, familyId: auth.familyId } });
     if (!child) {
       return res.status(404).json({ error: "Child not found." });
+    }
+
+    // The actual enforcement point — the GET handler above also returns
+    // this flag so the UI can show an upgrade prompt before a parent
+    // even fills out a brief, but that's a UX nicety, not the real
+    // gate. This check is what actually stops a Reader-tier family
+    // from creating a custom book even if they somehow reach this
+    // endpoint directly.
+    const entitlementCheck = await checkCustomBooksAllowed(auth.familyId);
+    if (!entitlementCheck.ok) {
+      return res.status(entitlementCheck.status).json({ error: entitlementCheck.error, code: "CUSTOM_BOOKS_NOT_ALLOWED" });
     }
 
     try {

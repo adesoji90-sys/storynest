@@ -23,6 +23,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/authAdmin";
 import { getStoryProvider } from "@/lib/ai/StoryProvider";
+import { prisma } from "@/lib/prisma";
+import { estimateStoryGenerationCostKobo } from "@/lib/ai/costEstimate";
 
 const GenerateSchema = z.object({
   theme: z.string().trim().min(1, "Describe what the book should be about."),
@@ -114,13 +116,29 @@ Write the full story now as JSON, following the system instructions exactly.
       return res.status(502).json({ error: (providerErr as Error).message || "Story generation failed upstream." });
     }
 
-    // No AIUsageRecord here — Section 16's tracking is per-family
-    // (AIUsageRecord.familyId is a required column), and admin-generated
-    // curated content has no family to attribute cost to. Story Studio's
-    // generate.ts (personalized, family-scoped) does create one. Fixing
-    // this properly would mean making familyId nullable on
-    // AIUsageRecord, a real schema change that doesn't belong folded
-    // into this refactor — flagged here rather than silently skipped.
+    // Fixed now that AIUsageRecord.familyId is nullable — this was
+    // previously skipped entirely with a comment explaining the schema
+    // blocker; that blocker is gone. bookId is null here specifically
+    // because no Book row exists yet at generation time for admin
+    // content (see this file's top comment — the book is only created
+    // once the admin clicks "Create book," which may never happen for
+    // a rejected/regenerated attempt) — same reasoning as the
+    // character-reference usage log in lib/illustration.ts.
+    await prisma.aIUsageRecord.create({
+      data: {
+        familyId: null,
+        userId: auth.userId,
+        bookId: null,
+        operationType: "STORY_GENERATION",
+        provider: "anthropic",
+        model: result.model,
+        inputUnits: result.inputTokens,
+        outputUnits: result.outputTokens,
+        estimatedCostMinorUnits: estimateStoryGenerationCostKobo(result.inputTokens, result.outputTokens),
+        currency: "NGN",
+        status: "success",
+      },
+    });
 
     let story: {
       title?: string;

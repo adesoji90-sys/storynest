@@ -9,6 +9,7 @@ export default function StoryStudio() {
   const [session, setSession] = useState(undefined);
   const [children, setChildren] = useState([]);
   const [inProgress, setInProgress] = useState([]);
+  const [customBooksAllowed, setCustomBooksAllowed] = useState(true); // optimistic default while loading — the real check is server-side regardless
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -18,6 +19,12 @@ export default function StoryStudio() {
   const [saving, setSaving] = useState(false);
 
   const [childId, setChildId] = useState("");
+  const [showCharacterCustomization, setShowCharacterCustomization] = useState(false);
+  const [charAppearance, setCharAppearance] = useState("");
+  const [charHair, setCharHair] = useState("");
+  const [charSkinTone, setCharSkinTone] = useState("");
+  const [charClothing, setCharClothing] = useState("");
+  const [charPersonality, setCharPersonality] = useState("");
   const [theme, setTheme] = useState("");
   const [lesson, setLesson] = useState("");
   const [genre, setGenre] = useState("");
@@ -26,11 +33,15 @@ export default function StoryStudio() {
   const [parentInstructions, setParentInstructions] = useState("");
 
   const [draftTitle, setDraftTitle] = useState("");
+  const [authorName, setAuthorName] = useState("");
   const [draftPages, setDraftPages] = useState([]);
   const [publishedBookId, setPublishedBookId] = useState(null);
   const [illustrating, setIllustrating] = useState(false);
   const [illustrateDone, setIllustrateDone] = useState(false);
   const [illustrateError, setIllustrateError] = useState("");
+  const [narrating, setNarrating] = useState(false);
+  const [narrateDone, setNarrateDone] = useState(false);
+  const [narrateError, setNarrateError] = useState("");
 
   useEffect(() => {
     async function checkSession() {
@@ -61,6 +72,7 @@ export default function StoryStudio() {
         if (!storiesRes.ok) throw new Error(storiesData.error || "Couldn't load your stories.");
         setChildren(famData.children);
         setInProgress(storiesData.stories);
+        setCustomBooksAllowed(storiesData.customBooksAllowed ?? true);
         if (famData.children.length > 0) setChildId(famData.children[0].id);
       } catch (err) {
         setError(err.message);
@@ -78,6 +90,29 @@ export default function StoryStudio() {
     setGenerating(true);
     try {
       const token = session.access_token;
+
+      // Saved BEFORE the story starts, matching "customize characters
+      // before creating books" — this updates the child's one
+      // CharacterBible (created if it doesn't exist yet), which
+      // getOrGenerateCharacterReferenceBase64 then reads from whenever
+      // illustration eventually happens. Only sent if the section was
+      // actually opened and something was filled in — an untouched,
+      // collapsed customization section shouldn't overwrite whatever
+      // (if anything) was set before.
+      if (showCharacterCustomization) {
+        await fetch(`/api/children/${childId}/character`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            appearance: charAppearance.trim() || undefined,
+            hair: charHair.trim() || undefined,
+            skinTone: charSkinTone.trim() || undefined,
+            clothing: charClothing.trim() || undefined,
+            personality: charPersonality.trim() || undefined,
+          }),
+        });
+      }
+
       const startRes = await fetch("/api/story-studio", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -148,7 +183,7 @@ export default function StoryStudio() {
       const res = await fetch(`/api/story-studio/${storyId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ title: draftTitle, pages: draftPages.map((text) => ({ text })) }),
+        body: JSON.stringify({ title: draftTitle, authorName: authorName.trim() || undefined, pages: draftPages.map((text) => ({ text })) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't approve the story.");
@@ -179,6 +214,24 @@ export default function StoryStudio() {
     }
   }
 
+  async function handleNarrate() {
+    setNarrateError("");
+    setNarrating(true);
+    try {
+      const res = await fetch(`/api/books/${publishedBookId}/narrate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't narrate the book.");
+      setNarrateDone(true);
+    } catch (err) {
+      setNarrateError(err.message);
+    } finally {
+      setNarrating(false);
+    }
+  }
+
   if (session === undefined) return null;
 
   return (
@@ -206,6 +259,20 @@ export default function StoryStudio() {
                 Add a child first — <Link href="/family" className="font-semibold text-coral_ember">go to your family</Link>.
               </p>
             </div>
+          ) : !customBooksAllowed ? (
+            <div className="mt-6 rounded-cloth bg-white p-6 text-center shadow-sm">
+              <p className="font-display text-xl">Create your own stories with the Family plan</p>
+              <p className="mt-2 font-body text-charcoal/70">
+                Your current plan includes the full library — reading and listening are still fully available.
+                Writing your own personalized stories, starring your own child, needs the Family plan.
+              </p>
+              <Link
+                href="/upgrade"
+                className="mt-4 inline-block rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white"
+              >
+                See the Family plan →
+              </Link>
+            </div>
           ) : phase === "done" ? (
             <div className="mt-8 rounded-cloth bg-white p-6 text-center shadow-sm">
               <p className="font-display text-2xl">🎉 Published!</p>
@@ -222,6 +289,20 @@ export default function StoryStudio() {
                   className="mt-4 w-full rounded-cloth bg-indigo_night px-5 py-2.5 font-body font-bold text-white disabled:opacity-50"
                 >
                   {illustrating ? "Illustrating… this can take a minute" : "🎨 Illustrate this book"}
+                </button>
+              )}
+
+              {narrateError && <p className="mt-3 font-body text-sm text-coral_ember">{narrateError}</p>}
+
+              {narrateDone ? (
+                <p className="mt-3 font-body font-semibold text-leaf">✓ Narrated!</p>
+              ) : (
+                <button
+                  onClick={handleNarrate}
+                  disabled={narrating}
+                  className="mt-3 w-full rounded-cloth border-2 border-indigo_night px-5 py-2.5 font-body font-bold text-indigo_night disabled:opacity-50"
+                >
+                  {narrating ? "Narrating… this can take a minute" : "🔊 Add narration"}
                 </button>
               )}
 
@@ -242,6 +323,15 @@ export default function StoryStudio() {
               <input
                 value={draftTitle}
                 onChange={(e) => setDraftTitle(e.target.value)}
+                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+              />
+              <label className="mt-4 block font-body font-semibold">
+                Author <span className="font-normal text-charcoal/50">(optional)</span>
+              </label>
+              <input
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="e.g. Mummy Ada"
                 className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
               />
               <h3 className="mt-6 font-body font-semibold">Pages</h3>
@@ -292,6 +382,63 @@ export default function StoryStudio() {
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+
+                {!showCharacterCustomization ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCharacterCustomization(true)}
+                    className="mt-3 font-body text-sm font-semibold text-coral_ember"
+                  >
+                    + Customize their character's appearance
+                  </button>
+                ) : (
+                  <div className="mt-3 rounded-cloth bg-ivory_cloth p-4">
+                    <p className="font-body text-sm font-semibold text-charcoal/70">Character appearance</p>
+                    <p className="mt-1 font-body text-xs text-charcoal/50">
+                      Optional — describe how they should look in illustrations. Saved to this child so it's reused across all their books.
+                    </p>
+                    <textarea
+                      value={charAppearance}
+                      onChange={(e) => setCharAppearance(e.target.value)}
+                      placeholder="e.g. round glasses, a gap-toothed smile, always wearing a red cap"
+                      rows={2}
+                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                    />
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <input
+                        value={charHair}
+                        onChange={(e) => setCharHair(e.target.value)}
+                        placeholder="Hair"
+                        className="rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                      />
+                      <input
+                        value={charSkinTone}
+                        onChange={(e) => setCharSkinTone(e.target.value)}
+                        placeholder="Skin tone"
+                        className="rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                      />
+                      <input
+                        value={charClothing}
+                        onChange={(e) => setCharClothing(e.target.value)}
+                        placeholder="Clothing"
+                        className="rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                      />
+                    </div>
+                    <input
+                      value={charPersonality}
+                      onChange={(e) => setCharPersonality(e.target.value)}
+                      placeholder="Personality (e.g. brave, curious, gentle)"
+                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCharacterCustomization(false)}
+                      className="mt-2 font-body text-xs text-charcoal/40"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 <label className="mt-4 block font-body font-semibold">What should the story be about?</label>
                 <textarea
                   value={theme}

@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+import BookCover from "@/components/BookCover";
 
 function Badge({ children }) {
   return (
@@ -159,8 +160,11 @@ export default function Library() {
           ) : (
             <div className="mt-6 space-y-4">
               {books.map((book) => (
-                <div key={book.id} className="rounded-cloth bg-white p-5 shadow-sm">
+                <div key={book.id} className="flex gap-4 rounded-cloth bg-white p-5 shadow-sm">
+                  <BookCover coverUrl={book.coverUrl} title={book.title} className="w-24" />
+                  <div className="flex-1">
                   <p className="font-body text-lg font-bold">{book.title}</p>
+                  {book.authorName && <p className="font-body text-xs text-charcoal/50">by {book.authorName}</p>}
                   {book.subtitle && <p className="font-body text-sm text-charcoal/60">{book.subtitle}</p>}
                   {book.description && <p className="mt-2 font-body text-sm text-charcoal/70">{book.description}</p>}
                   <div className="mt-3 flex flex-wrap gap-1.5">
@@ -171,6 +175,16 @@ export default function Library() {
                     {book.category && <Badge>{book.category}</Badge>}
                     <Badge>{book._count?.pages ?? "?"} pages</Badge>
                   </div>
+                  {book.pdfUrl && (
+                    <a
+                      href={book.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block font-body text-sm font-semibold text-indigo_night"
+                    >
+                      📄 Download print-ready PDF
+                    </a>
+                  )}
 
                   {children.length > 0 && (
                     <div className="mt-4">
@@ -234,6 +248,7 @@ export default function Library() {
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
               ))}
             </div>

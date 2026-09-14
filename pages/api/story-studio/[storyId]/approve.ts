@@ -23,9 +23,11 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
+import { checkCustomBooksAllowed } from "@/lib/checkCustomBooksAllowed";
 
 const ApproveSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
+  authorName: z.string().trim().max(100).optional(),
   pages: z
     .array(z.object({ text: z.string().trim().min(1).max(4000) }))
     .min(1, "At least one page is required")
@@ -51,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input." });
   }
-  const { title, pages } = parsed.data;
+  const { title, authorName, pages } = parsed.data;
 
   const story = await prisma.story.findFirst({ where: { id: storyId, familyId: auth.familyId } });
   if (!story) {
@@ -59,6 +61,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (story.status === "STORY_APPROVED") {
     return res.status(409).json({ error: "This story has already been approved." });
+  }
+
+  const entitlementCheck = await checkCustomBooksAllowed(auth.familyId);
+  if (!entitlementCheck.ok) {
+    return res.status(entitlementCheck.status).json({ error: entitlementCheck.error });
   }
 
   try {
@@ -87,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })),
       });
 
-      await tx.book.update({ where: { id: story.bookId }, data: { title, status: "PUBLISHED" } });
+      await tx.book.update({ where: { id: story.bookId }, data: { title, authorName, status: "PUBLISHED" } });
       await tx.story.update({ where: { id: storyId }, data: { status: "STORY_APPROVED" } });
 
       await tx.bookAssignment.upsert({

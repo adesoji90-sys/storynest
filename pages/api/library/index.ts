@@ -58,6 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: true,
         title: true,
         subtitle: true,
+        authorName: true,
         description: true,
         ageRangeMin: true,
         ageRangeMax: true,
@@ -65,10 +66,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         category: true,
         lesson: true,
         language: true,
+        coverAsset: { select: { bucket: true, storageKey: true } },
+        pdfAsset: { select: { bucket: true, storageKey: true } },
         _count: { select: { pages: true } },
       },
     });
-    return res.status(200).json({ books });
+    // Both covers and PDFs live in public buckets (see schema.sql) — a
+    // plain public URL for each, no signing needed.
+    const booksWithCovers = books.map((book: any) => ({
+      ...book,
+      coverUrl: book.coverAsset
+        ? supabaseAdmin.storage.from(book.coverAsset.bucket).getPublicUrl(book.coverAsset.storageKey).data.publicUrl
+        : null,
+      pdfUrl: book.pdfAsset
+        ? supabaseAdmin.storage.from(book.pdfAsset.bucket).getPublicUrl(book.pdfAsset.storageKey).data.publicUrl
+        : null,
+      coverAsset: undefined,
+      pdfAsset: undefined,
+    }));
+    return res.status(200).json({ books: booksWithCovers });
   } catch (err) {
     console.error("library GET error:", err);
     return res.status(500).json({ error: "Unexpected server error." });

@@ -17,6 +17,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
+import { checkCustomBooksAllowed } from "@/lib/checkCustomBooksAllowed";
 import { getStoryProvider } from "@/lib/ai/StoryProvider";
 import { estimateStoryGenerationCostKobo } from "@/lib/ai/costEstimate";
 
@@ -68,6 +69,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
   if (!story) {
     return res.status(404).json({ error: "Story not found." });
+  }
+
+  const entitlementCheck = await checkCustomBooksAllowed(auth.familyId);
+  if (!entitlementCheck.ok) {
+    return res.status(entitlementCheck.status).json({ error: entitlementCheck.error });
   }
 
   const brief = story.brief as {

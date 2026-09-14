@@ -299,7 +299,8 @@ model Asset {
   createdAt  DateTime  @default(now()) @map("created_at")
 
   childAvatarFor           Child[]
-  bookCovers                Book[]
+  bookCovers                Book[]           @relation("BookCover")
+  bookPdfs                  Book[]           @relation("BookPdf")
   pageIllustrations         Page[]                    @relation("PageIllustration")
   pageNarrations            Page[]                    @relation("PageNarration")
   characterReferenceAssets  CharacterReferenceAsset[]
@@ -397,6 +398,12 @@ model Book {
   id              String     @id @default(uuid()) @db.Uuid
   title           String
   subtitle        String?
+  // Parent-editable, entered easily before publishing (Story Studio's
+  // review step) — separate from title/subtitle since it's a person's
+  // name, not story content. Nullable: a curated/admin book may not
+  // have (or need) an individual author credit the same way a
+  // personalized family book does.
+  authorName      String?    @map("author_name")
   description     String?
   ageRangeMin     Int?       @map("age_range_min")
   ageRangeMax     Int?       @map("age_range_max")
@@ -405,6 +412,13 @@ model Book {
   category        String?
   lesson          String?
   coverAssetId    String?    @map("cover_asset_id") @db.Uuid
+  // The "fully ready to print" deliverable — a generated PDF combining
+  // cover, every illustrated page, and text into one print-layout
+  // file. Nullable: most books won't have one until an admin
+  // explicitly generates it (same manual-trigger philosophy as
+  // illustration/narration — this is real, if cheap, server compute,
+  // not something that should happen silently on every book).
+  pdfAssetId      String?    @map("pdf_asset_id") @db.Uuid
   type            BookType
   status          BookStatus @default(DRAFT)
   familyId        String?    @map("family_id") @db.Uuid
@@ -412,7 +426,8 @@ model Book {
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
-  coverAsset  Asset?           @relation(fields: [coverAssetId], references: [id])
+  coverAsset  Asset?           @relation("BookCover", fields: [coverAssetId], references: [id])
+  pdfAsset    Asset?           @relation("BookPdf", fields: [pdfAssetId], references: [id])
   family      Family?          @relation(fields: [familyId], references: [id], onDelete: Cascade)
   pages       Page[]
   characters  BookCharacter[]
@@ -703,7 +718,14 @@ enum JobStatus {
 // how StoryNest's existing `orders.amount_kobo` column already does it.
 model AIUsageRecord {
   id                      String   @id @default(uuid()) @db.Uuid
-  familyId                String   @map("family_id") @db.Uuid
+  // Nullable as of this change — admin-authored curated content has
+  // no family to attribute cost to (the same gap flagged and deferred
+  // twice already, in Step 14's text generation and Step 15's page
+  // illustration). Fixed properly now rather than deferred a third
+  // time: admin operations log with familyId: null, family-scoped
+  // operations (Story Studio) continue exactly as before with a real
+  // value.
+  familyId                String?  @map("family_id") @db.Uuid
   userId                  String?  @map("user_id") @db.Uuid
   bookId                  String?  @map("book_id") @db.Uuid
   pageId                  String?  @map("page_id") @db.Uuid
@@ -717,7 +739,7 @@ model AIUsageRecord {
   status                  String // "success" | "failed"
   createdAt               DateTime @default(now()) @map("created_at")
 
-  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family Family? @relation(fields: [familyId], references: [id], onDelete: Cascade)
   user   User?  @relation(fields: [userId], references: [id])
   book   Book?  @relation(fields: [bookId], references: [id])
   page   Page?  @relation(fields: [pageId], references: [id])

@@ -55,7 +55,14 @@ export interface ImageProvider {
   generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult>;
 }
 
-// Same status as ImageProvider — interface only, no implementation.
+// Same status as ImageProvider — interface only, no implementation, but
+// storage-agnostic for the same reason: a provider generates audio, it
+// doesn't decide bucket names or file-naming conventions. durationMs is
+// the provider's best estimate, not necessarily a hard measurement from
+// the actual audio file — the first real implementation may only be
+// able to estimate this from input length rather than parse the
+// generated audio's real duration, and callers should treat it that
+// way until proven otherwise.
 export interface NarrationRequest {
   text: string;
   voiceId?: string;
@@ -63,7 +70,8 @@ export interface NarrationRequest {
 }
 
 export interface NarrationResult {
-  assetStorageKey: string;
+  base64: string;
+  mimeType: string;
   durationMs: number;
   model: string;
 }

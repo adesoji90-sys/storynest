@@ -413,3 +413,40 @@ on conflict (id) do update set public = false;
 -- No public storage.objects policy for either — service-role key
 -- (server-side only) bypasses RLS, which is the only way in, same as
 -- custom-characters and story-pdfs.
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 15b: BOOK COVERS — storage bucket
+-- ─────────────────────────────────────────────────────────────
+-- Public, unlike character-references/book-illustrations above — a
+-- cover is meant to be shown on the library browse page before a
+-- family has even assigned or opened the book, the same way any
+-- storefront shows a cover before purchase/access. It's cover ART
+-- only (generated from the book's title/theme, not a depiction of a
+-- real child), so it doesn't carry the same likeness-privacy concern
+-- that justified those other buckets being private.
+insert into storage.buckets (id, name, public)
+values ('book-covers', 'book-covers', true)
+on conflict (id) do update set public = true;
+
+-- ─────────────────────────────────────────────────────────────
+-- NARRATION — storage bucket
+-- ─────────────────────────────────────────────────────────────
+-- Private, same reasoning as book-illustrations — narration audio is
+-- part of one family's personalized book, not shared/public content
+-- the way a cover is.
+insert into storage.buckets (id, name, public)
+values ('book-narrations', 'book-narrations', false)
+on conflict (id) do update set public = false;
+
+-- ─────────────────────────────────────────────────────────────
+-- PRINT-READY PDFS — storage bucket
+-- ─────────────────────────────────────────────────────────────
+-- Public, same reasoning as book-covers: this bucket is scoped to
+-- CURATED books only for now (admin-generated, using a generic
+-- character, not a real child's likeness), which is what makes a plain
+-- shareable link reasonable. If a PDF export is ever built for CUSTOM
+-- (family) books, which DO depict a real child, that should use a
+-- separate, private bucket instead — not this one.
+insert into storage.buckets (id, name, public)
+values ('book-pdfs', 'book-pdfs', true)
+on conflict (id) do update set public = true;
