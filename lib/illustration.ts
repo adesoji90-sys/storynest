@@ -59,7 +59,29 @@ async function logImageUsage(params: UsageLogParams) {
   });
 }
 
-export async function getOrCreateChildCharacterBible(childId: string, familyId: string) {
+// themeContext (the story's own brief.theme) is used ONLY the first
+// time a character is created for this child — it's what makes the
+// "neutral" reference (which every page illustration is generated
+// FROM, via edits) actually describe the same subject the cover
+// generator already sees via the book's title. Without this, the two
+// were built from disconnected descriptions: the cover incorporated
+// the title/theme, the character reference used a hardcoded generic
+// "cheerful child" with no idea what the story was actually about —
+// which is exactly why a story about, say, a pregnant woman could show
+// pregnancy on the cover but nowhere in the actual pages.
+//
+// HONEST REMAINING LIMITATION: a CharacterBible is still cached per
+// CHILD, not per STORY — reused across every future book for that
+// child. This fixes the mismatch WITHIN one book; it doesn't yet
+// handle a second, later story for the same child describing a
+// completely different subject (that story would still see this
+// FIRST story's cached appearance). Fixing that properly means
+// character bibles keyed per-story instead of per-child-forever, a
+// real, separate change, not something folded into this fix. A parent
+// can work around it today via "Customize their character's
+// appearance" in Story Studio, which overwrites this description
+// explicitly.
+export async function getOrCreateChildCharacterBible(childId: string, familyId: string, themeContext?: string) {
   const existing = await prisma.characterBible.findFirst({ where: { childId } });
   if (existing) return existing;
 
@@ -74,7 +96,9 @@ export async function getOrCreateChildCharacterBible(childId: string, familyId: 
       familyId,
       name: child.name,
       age,
-      appearance: "A cheerful, friendly child with a warm smile.",
+      appearance: themeContext
+        ? `The main character in a story about: ${themeContext}`
+        : "A cheerful, friendly child with a warm smile.",
       visualStyle: "painterly",
     },
   });

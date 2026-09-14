@@ -19,7 +19,10 @@ export default function StoryStudio() {
   const [saving, setSaving] = useState(false);
 
   const [childId, setChildId] = useState("");
-  const [showCharacterCustomization, setShowCharacterCustomization] = useState(false);
+  const [characters, setCharacters] = useState([]);
+  const [characterMode, setCharacterMode] = useState("none"); // "none" (auto), "existing" (pick one), "new" (create one)
+  const [selectedCharacterId, setSelectedCharacterId] = useState("");
+  const [charName, setCharName] = useState("");
   const [charAppearance, setCharAppearance] = useState("");
   const [charHair, setCharHair] = useState("");
   const [charSkinTone, setCharSkinTone] = useState("");
@@ -62,17 +65,20 @@ export default function StoryStudio() {
       setError("");
       try {
         const token = session.access_token;
-        const [famRes, storiesRes] = await Promise.all([
+        const [famRes, storiesRes, charRes] = await Promise.all([
           fetch("/api/family/me", { headers: { Authorization: `Bearer ${token}` } }),
           fetch("/api/story-studio", { headers: { Authorization: `Bearer ${token}` } }),
+          fetch("/api/characters", { headers: { Authorization: `Bearer ${token}` } }),
         ]);
         const famData = await famRes.json();
         const storiesData = await storiesRes.json();
+        const charData = await charRes.json();
         if (!famRes.ok) throw new Error(famData.error || "Couldn't load your family.");
         if (!storiesRes.ok) throw new Error(storiesData.error || "Couldn't load your stories.");
         setChildren(famData.children);
         setInProgress(storiesData.stories);
         setCustomBooksAllowed(storiesData.customBooksAllowed ?? true);
+        setCharacters(charRes.ok ? charData.characters : []);
         if (famData.children.length > 0) setChildId(famData.children[0].id);
       } catch (err) {
         setError(err.message);
@@ -86,24 +92,30 @@ export default function StoryStudio() {
     e.preventDefault();
     if (!childId) return setError("Add a child first, or pick one above.");
     if (!theme.trim()) return setError("Describe what the story should be about.");
+    if (characterMode === "existing" && !selectedCharacterId) return setError("Pick a character, or choose a different option.");
+    if (characterMode === "new" && !charName.trim()) return setError("Give your new character a name.");
     setError("");
     setGenerating(true);
     try {
       const token = session.access_token;
 
-      // Saved BEFORE the story starts, matching "customize characters
-      // before creating books" — this updates the child's one
-      // CharacterBible (created if it doesn't exist yet), which
-      // getOrGenerateCharacterReferenceBase64 then reads from whenever
-      // illustration eventually happens. Only sent if the section was
-      // actually opened and something was filled in — an untouched,
-      // collapsed customization section shouldn't overwrite whatever
-      // (if anything) was set before.
-      if (showCharacterCustomization) {
-        await fetch(`/api/children/${childId}/character`, {
+      // Resolved to a real characterId BEFORE starting the story, so
+      // it can be linked via BookCharacter at creation time — this is
+      // what lets illustrate.ts check for an explicitly-chosen
+      // character first, instead of always auto-deriving one from the
+      // child (the old behavior that caused a story about, say, a
+      // pregnant woman to keep reusing whatever generic child
+      // appearance was cached from an earlier, unrelated story).
+      let characterId;
+      if (characterMode === "existing") {
+        characterId = selectedCharacterId;
+      } else if (characterMode === "new") {
+        const charRes = await fetch("/api/characters", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
+            name: charName.trim(),
+            childId,
             appearance: charAppearance.trim() || undefined,
             hair: charHair.trim() || undefined,
             skinTone: charSkinTone.trim() || undefined,
@@ -111,13 +123,21 @@ export default function StoryStudio() {
             personality: charPersonality.trim() || undefined,
           }),
         });
+        const charData = await charRes.json();
+        if (!charRes.ok) throw new Error(charData.error || "Couldn't create the character.");
+        characterId = charData.character.id;
+        setCharacters((prev) => [charData.character, ...prev]);
       }
+      // characterMode === "none" leaves characterId undefined —
+      // /api/story-studio falls back to auto-creating a default
+      // character from the child, same as before this feature existed.
 
       const startRes = await fetch("/api/story-studio", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           childId,
+          characterId,
           theme: theme.trim(),
           lesson: lesson.trim() || undefined,
           genre: genre.trim() || undefined,
@@ -383,24 +403,59 @@ export default function StoryStudio() {
                   ))}
                 </select>
 
-                {!showCharacterCustomization ? (
+                <label className="mt-4 block font-body font-semibold">Character</label>
+                <div className="mt-1 grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowCharacterCustomization(true)}
-                    className="mt-3 font-body text-sm font-semibold text-coral_ember"
+                    onClick={() => setCharacterMode("none")}
+                    className={`rounded-cloth border-2 px-2 py-2 font-body text-xs font-semibold ${characterMode === "none" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"}`}
                   >
-                    + Customize their character's appearance
+                    Default
                   </button>
-                ) : (
-                  <div className="mt-3 rounded-cloth bg-ivory_cloth p-4">
-                    <p className="font-body text-sm font-semibold text-charcoal/70">Character appearance</p>
-                    <p className="mt-1 font-body text-xs text-charcoal/50">
-                      Optional — describe how they should look in illustrations. Saved to this child so it's reused across all their books.
-                    </p>
+                  <button
+                    type="button"
+                    onClick={() => setCharacterMode("existing")}
+                    disabled={characters.length === 0}
+                    className={`rounded-cloth border-2 px-2 py-2 font-body text-xs font-semibold disabled:opacity-30 ${characterMode === "existing" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"}`}
+                  >
+                    Choose existing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCharacterMode("new")}
+                    className={`rounded-cloth border-2 px-2 py-2 font-body text-xs font-semibold ${characterMode === "new" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"}`}
+                  >
+                    Create new
+                  </button>
+                </div>
+
+                {characterMode === "existing" && (
+                  <select
+                    value={selectedCharacterId}
+                    onChange={(e) => setSelectedCharacterId(e.target.value)}
+                    className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body text-sm"
+                  >
+                    <option value="">Pick a character…</option>
+                    {characters.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.child ? ` (${c.child.name})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {characterMode === "new" && (
+                  <div className="mt-2 rounded-cloth bg-ivory_cloth p-4">
+                    <input
+                      value={charName}
+                      onChange={(e) => setCharName(e.target.value)}
+                      placeholder="Character name"
+                      className="w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                    />
                     <textarea
                       value={charAppearance}
                       onChange={(e) => setCharAppearance(e.target.value)}
-                      placeholder="e.g. round glasses, a gap-toothed smile, always wearing a red cap"
+                      placeholder="Appearance — e.g. round glasses, a gap-toothed smile, always wearing a red cap"
                       rows={2}
                       className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
                     />
@@ -430,13 +485,9 @@ export default function StoryStudio() {
                       placeholder="Personality (e.g. brave, curious, gentle)"
                       className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowCharacterCustomization(false)}
-                      className="mt-2 font-body text-xs text-charcoal/40"
-                    >
-                      Cancel
-                    </button>
+                    <p className="mt-2 font-body text-xs text-charcoal/50">
+                      Saved to your family's character library — reusable in future stories too, for this or any child.
+                    </p>
                   </div>
                 )}
                 <label className="mt-4 block font-body font-semibold">What should the story be about?</label>

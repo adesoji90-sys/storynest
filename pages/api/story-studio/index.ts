@@ -22,6 +22,7 @@ import { checkCustomBooksAllowed } from "@/lib/checkCustomBooksAllowed";
 
 const BriefSchema = z.object({
   childId: z.string().uuid(),
+  characterId: z.string().uuid().optional(), // if omitted, a default character is auto-created for the child, same as before this change
   theme: z.string().trim().min(1, "Describe what the story should be about."),
   lesson: z.string().trim().max(200).optional(),
   genre: z.string().trim().max(60).optional(),
@@ -67,11 +68,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input." });
     }
-    const { childId, ...brief } = parsed.data;
+    const { childId, characterId, ...brief } = parsed.data;
 
     const child = await prisma.child.findFirst({ where: { id: childId, familyId: auth.familyId } });
     if (!child) {
       return res.status(404).json({ error: "Child not found." });
+    }
+
+    // If a character was explicitly chosen, confirm it's actually this
+    // family's — never trust a client-supplied id alone, same pattern
+    // as every other ownership check in this codebase.
+    if (characterId) {
+      const character = await prisma.characterBible.findFirst({ where: { id: characterId, familyId: auth.familyId } });
+      if (!character) {
+        return res.status(404).json({ error: "Character not found." });
+      }
     }
 
     // The actual enforcement point — the GET handler above also returns
@@ -105,6 +116,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             brief,
           },
         });
+        // Linked now, at story-creation time, rather than left for
+        // illustration time to figure out — this is what lets
+        // illustrate.ts check BookCharacter FIRST (same lookup order
+        // admin/curated illustration already uses) instead of falling
+        // back to auto-deriving one from childId, which is the old
+        // behavior that caused the cover/pages mismatch bug in the
+        // first place.
+        if (characterId) {
+          await tx.bookCharacter.create({ data: { bookId: book.id, characterId, role: "main" } });
+        }
         return { storyId: story.id, bookId: book.id };
       });
       return res.status(201).json(result);

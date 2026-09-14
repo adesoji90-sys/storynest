@@ -40,13 +40,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const book = await prisma.book.findFirst({
     where: { id: bookId, familyId: auth.familyId, type: "CUSTOM" },
-    include: { story: true, pages: { orderBy: { pageNumber: "asc" } } },
+    include: {
+      story: true,
+      pages: { orderBy: { pageNumber: "asc" } },
+      characters: { include: { character: true } },
+    },
   });
   if (!book) {
     return res.status(404).json({ error: "Book not found." });
-  }
-  if (!book.story?.childId) {
-    return res.status(400).json({ error: "This book has no child to illustrate for." });
   }
   if (book.pages.length === 0) {
     return res.status(400).json({ error: "This book has no pages yet." });
@@ -71,7 +72,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
 
   try {
-    const characterBible = await getOrCreateChildCharacterBible(book.story.childId, auth.familyId);
+    // Checks for an explicitly-linked character FIRST (set at
+    // story-creation time if the parent picked one in Story Studio),
+    // matching the same lookup order admin/curated illustration already
+    // uses via getOrCreateGenericBookCharacterBible. Only falls back to
+    // auto-deriving one from the child if no character was ever linked
+    // — either an older book created before this change, or a parent
+    // who didn't bother picking one, which is still a fully supported
+    // path, not a removed feature.
+    const linkedCharacter = book.characters[0]?.character;
+    const characterBible = linkedCharacter
+      ? linkedCharacter
+      : await (async () => {
+          if (!book.story?.childId) {
+            throw new Error("This book has no child or character to illustrate for.");
+          }
+          const theme = (book.story.brief as any)?.theme as string | undefined;
+          return getOrCreateChildCharacterBible(book.story.childId, auth.familyId, theme);
+        })();
     // Always ensure "neutral" exists first, before any page's pose
     // selection runs — every other pose is generated as an edit of
     // this one (see getOrGenerateCharacterReferenceBase64), so it needs

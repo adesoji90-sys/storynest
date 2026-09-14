@@ -1,8 +1,16 @@
-// Real implementation of NarrationProvider, using OpenAI's current TTS
-// model (gpt-4o-mini-tts, confirmed via their own docs — this space has
-// moved fast; the older tts-1/tts-1-hd models still exist but
-// gpt-4o-mini-tts is what OpenAI itself now points to as "our newest
-// and most reliable text-to-speech model").
+// Real implementation of NarrationProvider. MODEL CHOICE IS DELIBERATE
+// and worth explaining: gpt-4o-mini-tts (OpenAI's newer, more
+// expressive model, with tone-steering "instructions") has a real,
+// currently unresolved issue reported repeatedly on OpenAI's own
+// developer forum — separate API calls with the identical voice and
+// instructions produce audibly different-sounding output, with no
+// seed or consistency mechanism available. One developer there
+// explicitly switched back to tts-1 for exactly this reason. Since a
+// children's book narrated in a voice that noticeably shifts partway
+// through is a worse experience than a slightly more rigid but
+// CONSISTENT voice, this uses tts-1 — trading away the "instructions"
+// tone-steering parameter (tts-1 doesn't support it) for reliability
+// across a whole book's worth of separate per-page calls.
 //
 // COMPLIANCE NOTE, not optional: OpenAI's usage policy requires
 // disclosing to end users that a TTS voice is AI-generated, not human.
@@ -22,7 +30,7 @@
 import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
 import type { NarrationProvider, NarrationRequest, NarrationResult } from "./types";
 
-const TTS_MODEL = "gpt-4o-mini-tts";
+const TTS_MODEL = "tts-1";
 const DEFAULT_VOICE = "coral"; // warm, positive tone per OpenAI's own example usage
 const WORDS_PER_MINUTE = 130;
 
@@ -38,7 +46,9 @@ export class OpenAITTSProvider implements NarrationProvider {
         model: TTS_MODEL,
         voice: request.voiceId || DEFAULT_VOICE,
         input: request.text,
-        instructions: "Speak warmly and gently, like reading a bedtime story aloud to a young child — unhurried, expressive, and comforting.",
+        // tts-1 does not support "instructions" (that's a
+        // gpt-4o-mini-tts-only parameter) — deliberately omitted here,
+        // not forgotten.
       }),
     });
 

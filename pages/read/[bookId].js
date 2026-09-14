@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -11,6 +11,7 @@ export default function Reader() {
   const [session, setSession] = useState(undefined);
   const [book, setBook] = useState(null);
   const [pageIndex, setPageIndex] = useState(0); // 0-based into book.pages
+  const audioRef = useRef(null);
   const [showingCover, setShowingCover] = useState(true);
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,24 @@ export default function Reader() {
       // interrupting a bedtime story to report.
     }
   }
+
+  // Auto-plays narration on every page change — including the very
+  // first page shown, whether that's from opening the book fresh or
+  // resuming mid-book. Keyed on pageIndex (not called directly inside
+  // goToPage) specifically because React's state update is async:
+  // calling .play() immediately inside goToPage would still be pointed
+  // at the PREVIOUS page's audio src, since the DOM hasn't re-rendered
+  // with the new page yet at that exact moment. This still runs as an
+  // immediate, fast follow-up to the "Next"/"Previous" click that
+  // triggered it, which is what lets browsers actually allow the
+  // autoplay — the .catch() below is for the rarer case where a
+  // browser's autoplay policy blocks it anyway; the child can still
+  // tap play manually, this isn't a bug to force around.
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [pageIndex]);
 
   function goToPage(newIndex) {
     if (newIndex < 0 || newIndex >= book.pages.length) return;
@@ -205,7 +224,7 @@ export default function Reader() {
 
             {page.narrationUrl && (
               <div className="mt-6">
-                <audio controls src={page.narrationUrl} className="w-full" />
+                <audio key={page.id} ref={audioRef} controls src={page.narrationUrl} className="w-full" />
                 {/* Required disclosure, not optional — OpenAI's usage
                     policy for its TTS models requires telling
                     listeners the voice is AI-generated, not human. */}
