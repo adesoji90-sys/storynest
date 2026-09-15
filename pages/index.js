@@ -37,11 +37,20 @@ function OpenBookHero() {
           <circle cx="60" cy="45" r="3" fill="#FBF3E7" opacity="0.6" />
           <circle cx="95" cy="30" r="2" fill="#FBF3E7" opacity="0.5" />
           <circle cx="255" cy="130" r="2.5" fill="#FBF3E7" opacity="0.5" />
-          {/* a child, tucked under a blanket, reading by the light of the book itself */}
-          <path d="M60 260 Q150 220 240 260 L240 285 L60 285 Z" fill="#3F7D5C" />
-          <circle cx="150" cy="205" r="34" fill="#E85C41" />
-          <rect x="118" y="195" width="64" height="46" rx="6" fill="#F2A93B" transform="rotate(-8 150 218)" />
-          <rect x="122" y="199" width="26" height="38" rx="2" fill="#FBF3E7" opacity="0.85" transform="rotate(-8 150 218)" />
+          {/* Mother and father seated on either side of their child, an
+              open book on the child's lap — simple silhouette shapes
+              (rounded body + circle head, one color each) rather than
+              detailed figures, deliberately kept legible without
+              needing fine linework. */}
+          <rect x="20" y="195" width="280" height="45" rx="22" fill="#3F7D5C" />
+          <rect x="55" y="110" width="55" height="95" rx="27" fill="#E85C41" />
+          <circle cx="82" cy="100" r="24" fill="#E85C41" />
+          <rect x="210" y="110" width="55" height="95" rx="27" fill="#F2A93B" />
+          <circle cx="237" cy="100" r="24" fill="#F2A93B" />
+          <rect x="132" y="140" width="44" height="68" rx="22" fill="#FBF3E7" />
+          <circle cx="154" cy="128" r="18" fill="#FBF3E7" />
+          <path d="M154 178 L118 192 L118 198 L154 186 Z" fill="#E85C41" />
+          <path d="M154 178 L190 192 L190 198 L154 186 Z" fill="#F2A93B" />
         </svg>
       </div>
 
