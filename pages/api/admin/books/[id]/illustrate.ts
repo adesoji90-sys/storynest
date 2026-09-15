@@ -58,14 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const characterBible = await getOrCreateGenericBookCharacterBible(book.id, book.title, book.category);
-    await getOrGenerateCharacterReferenceBase64(characterBible, null, "neutral");
-    await generateBookCover({
-      bookId: book.id,
-      title: book.title,
-      characterBible,
-      familyId: null,
-      userId: auth.userId,
-    });
+    const referenceBase64 = await getOrGenerateCharacterReferenceBase64(characterBible, null, "neutral");
 
     const results: { pageId: string; ok: boolean; error?: string }[] = [];
     for (const page of book.pages) {
@@ -92,6 +85,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         results.push({ pageId: page.id, ok: false, error: (pageErr as Error).message });
       }
     }
+
+    // Cover generated LAST, after every page — see the family-scoped
+    // illustrate route's own comment for the full reasoning (anchored
+    // to the same reference image, sequenced after pages actually run).
+    await generateBookCover({
+      bookId: book.id,
+      title: book.title,
+      characterBible,
+      referenceBase64,
+      familyId: null,
+      userId: auth.userId,
+    });
 
     return res.status(200).json({ results, failedCount: results.filter((r) => !r.ok).length });
   } catch (err) {

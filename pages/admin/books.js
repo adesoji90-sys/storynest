@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import AdminHeader from "@/components/AdminHeader";
+import BookCover from "@/components/BookCover";
 
 const READING_LEVELS = ["Beginner", "Early reader", "Independent", "Fluent"];
 
@@ -49,6 +50,7 @@ function emptyForm() {
     readingLevel: "",
     category: "",
     lesson: "",
+    characterGender: "unspecified",
     pages: [""],
   };
 }export default function AdminBooks() {
@@ -177,6 +179,7 @@ function emptyForm() {
           readingLevel: form.readingLevel || undefined,
           category: form.category.trim() || undefined,
           lesson: form.lesson.trim() || undefined,
+          characterGender: form.characterGender !== "unspecified" ? form.characterGender : undefined,
           pages: form.pages.map((text) => ({ text: text.trim() })),
         }),
       });
@@ -224,7 +227,13 @@ function emptyForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't illustrate the book.");
-      setBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, illustrated: true } : b)));
+      // Refetches the full list rather than patching local state — a
+      // partial patch here previously only set illustrated:true and
+      // never picked up the fresh coverUrl the illustrate step also
+      // generates, which is why a cover appeared on the parent-facing
+      // /library immediately but not on this admin list until a full
+      // page reload.
+      await loadBooks(session.access_token);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -472,6 +481,20 @@ function emptyForm() {
                   className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
                 />
               </div>
+              <div>
+                <label className="block font-body text-sm font-semibold">
+                  Character gender <span className="font-normal text-charcoal/50">(helps illustration)</span>
+                </label>
+                <select
+                  value={form.characterGender}
+                  onChange={(e) => updateField("characterGender", e.target.value)}
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                >
+                  <option value="unspecified">Unspecified</option>
+                  <option value="girl">Girl</option>
+                  <option value="boy">Boy</option>
+                </select>
+              </div>
             </div>
 
             <h3 className="mt-6 font-body font-semibold">Pages</h3>
@@ -525,7 +548,9 @@ function emptyForm() {
                   <div className="mt-3 space-y-3">
                     {categoryBooks.map((book) => (
                       <div key={book.id} className="flex items-center justify-between rounded-cloth bg-white p-4 shadow-sm">
-                        <div>
+                        <div className="flex items-center gap-4">
+                          <BookCover coverUrl={book.coverUrl} title={book.title} className="w-16 shrink-0" />
+                          <div>
                           <div className="flex items-center gap-2">
                             <p className="font-body font-bold">{book.title}</p>
                             <StatusPill status={book.status} />
@@ -538,6 +563,7 @@ function emptyForm() {
                             {book.readingLevel && <Badge>{book.readingLevel}</Badge>}
                             {book.lesson && <Badge>{book.lesson}</Badge>}
                             <Badge>{book._count?.pages ?? "?"} pages</Badge>
+                          </div>
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-col gap-2">

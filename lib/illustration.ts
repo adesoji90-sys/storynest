@@ -115,7 +115,7 @@ export async function getOrCreateChildCharacterBible(childId: string, familyId: 
 // consistent across a book's pages, not to be narratively accurate.
 // Giving admins their own way to name/describe this character is a
 // real, natural improvement for later, not built in this pass.
-export async function getOrCreateGenericBookCharacterBible(bookId: string, bookTitle: string, category: string | null) {
+export async function getOrCreateGenericBookCharacterBible(bookId: string, bookTitle: string, category: string | null, gender?: string) {
   const existingLink = await prisma.bookCharacter.findFirst({ where: { bookId }, include: { character: true } });
   if (existingLink) return existingLink.character;
 
@@ -123,8 +123,9 @@ export async function getOrCreateGenericBookCharacterBible(bookId: string, bookT
     data: {
       childId: null,
       familyId: null,
-      name: "Tobi",
-      appearance: `A warm, cheerful child character suited to a story called "${bookTitle}"${category ? `, in the ${category} category` : ""}.`,
+      name: "Tobi", // unisex Yoruba name, works regardless of gender — kept even now that gender is selectable, since it only needs to keep the "named X" prompt phrasing natural, not match any specific gendered name
+      gender: gender || null,
+      appearance: `A warm, cheerful ${gender && gender !== "unspecified" ? gender : "child"} character suited to a story called "${bookTitle}"${category ? `, in the ${category} category` : ""}.`,
       visualStyle: "painterly",
     },
   });
@@ -147,7 +148,7 @@ export async function getOrCreateGenericBookCharacterBible(bookId: string, bookT
 // characterId alone) — this was always the intended shape, just not
 // used yet.
 export async function getOrGenerateCharacterReferenceBase64(
-  characterBible: { id: string; name: string; age: number | null; appearance: string | null; visualStyle: string },
+  characterBible: { id: string; name: string; age: number | null; gender?: string | null; appearance: string | null; visualStyle: string },
   familyId: string | null,
   poseId: string = "neutral"
 ): Promise<string> {
@@ -211,7 +212,7 @@ export async function getOrGenerateCharacterReferenceBase64(
     });
   } else {
     const prompt = `A ${style.guide} of a
-${characterBible.age ? `${characterBible.age}-year-old` : "young"} child named ${characterBible.name}.
+${characterBible.age ? `${characterBible.age}-year-old` : "young"}${characterBible.gender && characterBible.gender !== "unspecified" ? ` ${characterBible.gender}` : " child"} named ${characterBible.name}.
 ${characterBible.appearance || "A cheerful, friendly child."}
 Now show them ${pose.prompt}
 Warm African-first children's book illustration context.`;
@@ -251,6 +252,7 @@ export async function generateBookCover(params: {
   bookId: string;
   title: string;
   characterBible: { name: string; appearance: string | null; visualStyle: string } | null;
+  referenceBase64: string | null; // the SAME reference image used for page illustrations — see below for why this is no longer optional in practice
   familyId: string | null; // null for a curated/admin book — AIUsageRecord.familyId is nullable now specifically to make this legitimate, not a gap being worked around
   userId: string | null;
 }) {
@@ -258,13 +260,39 @@ export async function generateBookCover(params: {
   if (book?.coverAssetId) return; // already has one — never regenerate silently
 
   const style = getStyle(params.characterBible?.visualStyle || "painterly");
-  const prompt = `A children's book cover ILLUSTRATION for a story called "${params.title}".
+
+  // THE ACTUAL FIX for cover/page character mismatches: this used to
+  // generate the cover as an independent from-scratch image using only
+  // a TEXT description of the character — completely disconnected from
+  // the real reference image every page illustration is anchored to.
+  // Two separate generations from the same words don't reliably produce
+  // the same-looking character (this is the exact same root cause as
+  // the earlier cross-pose consistency bug, just for the cover
+  // specifically) — a real, reported case: a story's named character
+  // was female, but the cover and the illustrated pages showed visibly
+  // different people because the cover never saw the actual reference
+  // image at all. Now the cover is generated as an EDIT of that same
+  // reference (when one exists), using the same "placement, not
+  // redesign" approach pages already use — not just described in
+  // words, but visually anchored to the real, already-established
+  // character.
+  const prompt = params.referenceBase64
+    ? `Show this exact same character on the cover of a children's book called "${params.title}".
+${style.guide}
+Match their face, hairstyle, outfit, and outfit colors exactly as shown in the reference — do not redesign or reinterpret their appearance in any way.
+IMPORTANT: absolutely no text, letters, words, or writing anywhere in the image — this is artwork only, title text is added separately afterward. Leave open, relatively uncluttered space in the upper third of the composition where a title will be placed on top later.`
+    : `A children's book cover ILLUSTRATION for a story called "${params.title}".
 ${params.characterBible ? `Featuring the main character, ${params.characterBible.name}: ${params.characterBible.appearance || "a cheerful, friendly child"}.` : "An inviting, evocative scene capturing the spirit of the story."}
 ${style.guide}
 IMPORTANT: absolutely no text, letters, words, or writing anywhere in the image — this is artwork only, title text is added separately afterward. Leave open, relatively uncluttered space in the upper third of the composition where a title will be placed on top later.`;
 
   const provider = getImageProvider();
-  const result = await provider.generateImage({ prompt, width: 1024, height: 1536 });
+  const result = await provider.generateImage({
+    prompt,
+    references: params.referenceBase64 ? [{ label: params.characterBible?.name || "character", base64: params.referenceBase64 }] : undefined,
+    width: 1024,
+    height: 1536,
+  });
 
   const storageKey = `${params.bookId}_cover.png`;
   const { error: uploadError } = await supabaseAdmin.storage

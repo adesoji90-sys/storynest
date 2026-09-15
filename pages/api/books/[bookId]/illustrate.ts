@@ -109,19 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // to exist before any page that isn't itself "neutral" is
     // processed, not just whichever pose the first page happens to
     // select.
-    await getOrGenerateCharacterReferenceBase64(characterBible, auth.familyId, "neutral");
-
-    // Cover generation reuses the same character reference and is
-    // skipped entirely if the book already has one (see
-    // generateBookCover's own guard) — safe to call every time this
-    // route runs, including a retry after a partial page failure.
-    await generateBookCover({
-      bookId: book.id,
-      title: book.title,
-      characterBible,
-      familyId: auth.familyId,
-      userId: auth.userId,
-    });
+    const referenceBase64 = await getOrGenerateCharacterReferenceBase64(characterBible, auth.familyId, "neutral");
 
     const results: { pageId: string; ok: boolean; error?: string }[] = [];
     // Sequential, not concurrent — the old pipeline's own hard-learned
@@ -148,6 +136,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         results.push({ pageId: page.id, ok: false, error: (pageErr as Error).message });
       }
     }
+
+    // Cover generated LAST, after every page — not just anchored to the
+    // same reference image (the real fix for cover/page mismatches,
+    // same technique as page illustration itself), but deliberately
+    // sequenced after the pages actually run, not before, so it's the
+    // very last thing to use the established character rather than the
+    // first, matching a real, reported case where the cover and pages
+    // showed visibly different-looking characters. Still safe to call
+    // on a retry — generateBookCover's own guard skips silently if the
+    // book already has one.
+    await generateBookCover({
+      bookId: book.id,
+      title: book.title,
+      characterBible,
+      referenceBase64,
+      familyId: auth.familyId,
+      userId: auth.userId,
+    });
+
 
     const failedCount = results.filter((r) => !r.ok).length;
     await prisma.generationJob.update({

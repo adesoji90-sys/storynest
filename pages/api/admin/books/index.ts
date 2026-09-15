@@ -21,9 +21,15 @@ export const config = {
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateGenericBookCharacterBible, generateBookCover } from "@/lib/illustration";
+import { getOrCreateGenericBookCharacterBible, getOrGenerateCharacterReferenceBase64, generateBookCover } from "@/lib/illustration";
 import { requireAdmin } from "@/lib/authAdmin";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
+);
 
 const CreateBookSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
@@ -35,6 +41,7 @@ const CreateBookSchema = z.object({
   language: z.string().trim().max(20).optional(),
   category: z.string().trim().max(60).optional(),
   lesson: z.string().trim().max(200).optional(),
+  characterGender: z.enum(["girl", "boy", "unspecified"]).optional(),
   pages: z
     .array(z.object({ text: z.string().trim().min(1).max(4000) }))
     .min(1, "At least one page is required")
@@ -52,9 +59,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const books = await prisma.book.findMany({
         where: { type: "CURATED" },
         orderBy: { createdAt: "desc" },
-        include: { _count: { select: { pages: true } } },
+        include: {
+          coverAsset: { select: { bucket: true, storageKey: true } },
+          _count: { select: { pages: true } },
+        },
       });
-      return res.status(200).json({ books });
+      // Cover lives in a public bucket (see schema.sql) — a plain
+      // public URL, same resolution as /api/library uses. This was
+      // simply never added here before — the admin list has never
+      // shown a cover, not because none existed, just because this
+      // endpoint never fetched or returned one.
+      const booksWithCovers = books.map((book: any) => ({
+        ...book,
+        coverUrl: book.coverAsset
+          ? supabaseAdmin.storage.from(book.coverAsset.bucket).getPublicUrl(book.coverAsset.storageKey).data.publicUrl
+          : null,
+        coverAsset: undefined,
+      }));
+      return res.status(200).json({ books: booksWithCovers });
     } catch (err) {
       console.error("admin/books GET error:", err);
       return res.status(500).json({ error: "Unexpected server error." });
@@ -66,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input." });
     }
-    const { pages, ...bookFields } = parsed.data;
+    const { pages, characterGender, ...bookFields } = parsed.data;
     // Same closing-page idea as Story Studio's custom books (see that
     // flow's own version of this), but worded for curated library
     // content specifically — "create your own story" isn't relevant
@@ -115,11 +137,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // request — it just means the library shows the plain fallback
       // a bit longer, same as before this change existed.
       try {
-        const characterBible = await getOrCreateGenericBookCharacterBible(book.id, book.title, book.category);
+        const characterBible = await getOrCreateGenericBookCharacterBible(book.id, book.title, book.category, characterGender);
+        // Ensures the "neutral" reference exists FIRST, then anchors
+        // the cover to that same image (edit-based generation, same
+        // technique page illustration uses) rather than generating the
+        // cover independently from a text description — a real, reported
+        // bug: without this, the cover and the later-illustrated pages
+        // could show visibly different-looking characters, since two
+        // separate from-scratch generations of the same words don't
+        // reliably produce the same face. This still happens right away
+        // at creation time (the whole point of this feature — a cover
+        // shouldn't wait on someone remembering to click "Illustrate"),
+        // it's just now anchored to the character that will actually be
+        // reused for every future page too.
+        const referenceBase64 = await getOrGenerateCharacterReferenceBase64(characterBible, null, "neutral");
         await generateBookCover({
           bookId: book.id,
           title: book.title,
           characterBible,
+          referenceBase64,
           familyId: null,
           userId: auth.userId,
         });
@@ -132,7 +168,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         include: { coverAsset: { select: { bucket: true, storageKey: true } } },
       });
 
-      return res.status(201).json({ book: bookWithCover });
+      // Same resolution as the GET handler above — returning the raw
+      // coverAsset relation instead of an actual usable URL was a real
+      // bug: cover generation was completing successfully, but the
+      // frontend had nothing to put in an <img src>, so nothing showed
+      // up here even though the same book's cover was already visible
+      // on the parent-facing /library.
+      const coverUrl = bookWithCover?.coverAsset
+        ? supabaseAdmin.storage.from(bookWithCover.coverAsset.bucket).getPublicUrl(bookWithCover.coverAsset.storageKey).data.publicUrl
+        : null;
+
+      return res.status(201).json({ book: { ...bookWithCover, coverUrl, coverAsset: undefined } });
     } catch (err) {
       console.error("admin/books POST error:", err);
       return res.status(500).json({ error: "Unexpected server error." });

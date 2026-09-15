@@ -24,6 +24,7 @@ export default function StoryStudio() {
   const [characterMode, setCharacterMode] = useState("none"); // "none" (auto), "existing" (pick one), "new" (create one)
   const [selectedCharacterId, setSelectedCharacterId] = useState("");
   const [charName, setCharName] = useState("");
+  const [charGender, setCharGender] = useState("unspecified");
   const [charAppearance, setCharAppearance] = useState("");
   const [charHair, setCharHair] = useState("");
   const [charSkinTone, setCharSkinTone] = useState("");
@@ -119,6 +120,7 @@ export default function StoryStudio() {
           body: JSON.stringify({
             name: charName.trim(),
             childId,
+            gender: charGender !== "unspecified" ? charGender : undefined,
             appearance: charAppearance.trim() || undefined,
             hair: charHair.trim() || undefined,
             skinTone: charSkinTone.trim() || undefined,
@@ -520,6 +522,15 @@ export default function StoryStudio() {
                       placeholder="Character name"
                       className="w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
                     />
+                    <select
+                      value={charGender}
+                      onChange={(e) => setCharGender(e.target.value)}
+                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                    >
+                      <option value="unspecified">Gender — unspecified</option>
+                      <option value="girl">Girl</option>
+                      <option value="boy">Boy</option>
+                    </select>
                     <textarea
                       value={charAppearance}
                       onChange={(e) => setCharAppearance(e.target.value)}

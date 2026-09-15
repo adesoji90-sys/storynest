@@ -23,6 +23,7 @@ import { checkCustomBooksAllowed } from "@/lib/checkCustomBooksAllowed";
 const CreateCharacterSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
   childId: z.string().uuid().optional(),
+  gender: z.enum(["girl", "boy", "unspecified"]).optional(),
   appearance: z.string().trim().max(500).optional(),
   hair: z.string().trim().max(100).optional(),
   skinTone: z.string().trim().max(100).optional(),

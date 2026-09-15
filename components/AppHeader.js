@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
@@ -18,6 +19,23 @@ const NAV_ITEMS = [
 
 export default function AppHeader() {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // An admin previously had no way to reach /admin/books or
+  // /admin/dashboard from their normal logged-in view at all — they
+  // had to already know and type the URL. This checks once, quietly,
+  // and only ever ADDS a link; a non-admin sees no difference at all,
+  // and a failed/slow check just means the link doesn't appear yet,
+  // never a broken header.
+  useEffect(() => {
+    supabaseBrowser.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+      fetch("/api/admin/whoami", { headers: { Authorization: `Bearer ${data.session.access_token}` } })
+        .then((res) => res.json())
+        .then((json) => setIsAdmin(!!json.isAdmin))
+        .catch(() => {});
+    });
+  }, []);
 
   async function handleLogout() {
     await supabaseBrowser.auth.signOut();
@@ -46,6 +64,11 @@ export default function AppHeader() {
           <Link href="/upgrade" className="font-body text-sm text-charcoal/60">
             Upgrade
           </Link>
+          {isAdmin && (
+            <Link href="/admin/dashboard" className="font-body text-sm text-charcoal/60">
+              Admin
+            </Link>
+          )}
           <button onClick={handleLogout} className="font-body text-sm text-charcoal/40">
             Log out
           </button>
