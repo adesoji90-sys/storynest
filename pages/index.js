@@ -31,32 +31,22 @@ function OpenBookHero() {
             "linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0.02) 20%, rgba(0,0,0,0.02) 80%, rgba(0,0,0,0.10))",
         }}
       />
-      <div className="relative flex flex-1 items-center justify-center bg-indigo_night p-10 md:aspect-square">
-        <svg viewBox="0 0 300 300" className="h-full max-h-72 w-full max-w-72">
-          <circle cx="230" cy="60" r="26" fill="#FBF3E7" opacity="0.9" />
-          <circle cx="60" cy="45" r="3" fill="#FBF3E7" opacity="0.6" />
-          <circle cx="95" cy="30" r="2" fill="#FBF3E7" opacity="0.5" />
-          <circle cx="255" cy="130" r="2.5" fill="#FBF3E7" opacity="0.5" />
-          {/* Mother and father seated on either side of their child, an
-              open book on the child's lap — simple silhouette shapes
-              (rounded body + circle head, one color each) rather than
-              detailed figures, deliberately kept legible without
-              needing fine linework. */}
-          <rect x="20" y="195" width="280" height="45" rx="22" fill="#3F7D5C" />
-          <rect x="55" y="110" width="55" height="95" rx="27" fill="#E85C41" />
-          <circle cx="82" cy="100" r="24" fill="#E85C41" />
-          <rect x="210" y="110" width="55" height="95" rx="27" fill="#F2A93B" />
-          <circle cx="237" cy="100" r="24" fill="#F2A93B" />
-          <rect x="132" y="140" width="44" height="68" rx="22" fill="#FBF3E7" />
-          <circle cx="154" cy="128" r="18" fill="#FBF3E7" />
-          <path d="M154 178 L118 192 L118 198 L154 186 Z" fill="#E85C41" />
-          <path d="M154 178 L190 192 L190 198 L154 186 Z" fill="#F2A93B" />
-        </svg>
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-indigo_night md:aspect-square">
+        {/* Generated once via scripts/generate-hero-image.js using the
+            app's own OpenAI image pipeline — a real illustrated image,
+            not hand-coded SVG shapes (two earlier attempts at that
+            didn't read as intended). Run the script locally before
+            deploying; it writes directly to public/hero.png, which
+            this just references as a plain static file. */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- a
+            locally generated static asset, not something next/image's
+            remote-pattern config is set up for */}
+        <img src="/hero.png" alt="" className="h-full w-full object-cover" />
       </div>
 
       <div className="relative flex flex-1 flex-col justify-center p-10 md:p-14">
         <h1 className="font-display text-4xl leading-tight text-charcoal md:text-5xl">
-          A storybook that stars your child
+          Get intentional! Shape your child's mind with stories
         </h1>
         <p className="mt-5 font-body text-lg text-charcoal/70">
           Explore a growing library of illustrated, narrated stories, or build one from
