@@ -74,7 +74,7 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-cloth border border-charcoal/15 bg-white p-5">
+    <form onSubmit={handleSubmit} className="rounded-cloth bg-white p-6 shadow-sm ring-1 ring-coral_ember/20">
       <label className="block font-body font-semibold">Name</label>
       <input
         value={name}
@@ -117,13 +117,9 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
       />
       {error && <p className="mt-2 font-body text-sm text-coral_ember">{error}</p>}
       <div className="mt-5 flex gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-cloth bg-coral_ember px-5 py-2 font-body font-bold text-white disabled:opacity-50"
-        >
+        <Button type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save"}
-        </button>
+        </Button>
         <button type="button" onClick={onCancel} className="font-body text-sm text-charcoal/60">
           Cancel
         </button>

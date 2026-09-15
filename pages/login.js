@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+import { Button } from "@/components/ui";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
@@ -123,9 +124,19 @@ export default function Login() {
       <Head>
         <title>Log in — StoryNest</title>
       </Head>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-ivory_cloth px-6 text-charcoal">
-        <Link href="/" className="mb-8 font-display text-2xl">StoryNest</Link>
-        <div className="w-full max-w-sm rounded-cloth bg-white p-8 shadow-sm">
+      <main className="flex min-h-screen bg-ivory_cloth text-charcoal">
+        <div className="hidden flex-1 items-center justify-center bg-indigo_night md:flex">
+          {/* Reuses the landing page's own hero image — same asset,
+              same brand illustration, generated once via
+              scripts/generate-hero-image.js — rather than a second,
+              separate graphic just for this page. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- local static asset */}
+          <img src="/hero.png" alt="" className="h-full w-full object-cover" />
+        </div>
+
+        <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+          <Link href="/" className="mb-8 font-display text-2xl">StoryNest</Link>
+          <div className="w-full max-w-sm rounded-cloth bg-white p-8 shadow-lg">
           {sent ? (
             <>
               <h1 className="font-display text-2xl">Check your email</h1>
@@ -145,15 +156,18 @@ export default function Login() {
             <>
               <h1 className="font-display text-2xl">Log in</h1>
 
-              {/* Method choice — password vs magic link, both always here */}
-              <div className="mt-4 flex gap-2 rounded-cloth bg-indigo_night/5 p-1">
+              {/* Method choice — password vs magic link, both always
+                  here. Underline-indicator style rather than the
+                  previous pill/segmented look — a clearer, more
+                  standard "tab" convention. */}
+              <div className="mt-5 flex gap-6 border-b border-charcoal/10">
                 <button
                   onClick={() => {
                     setMethod("password");
                     resetMessages();
                   }}
-                  className={`flex-1 rounded-cloth py-2 font-body text-sm font-semibold ${
-                    method === "password" ? "bg-white shadow-sm" : "text-charcoal/60"
+                  className={`-mb-px border-b-2 pb-3 font-body text-sm font-semibold ${
+                    method === "password" ? "border-coral_ember text-charcoal" : "border-transparent text-charcoal/45"
                   }`}
                 >
                   Password
@@ -163,8 +177,8 @@ export default function Login() {
                     setMethod("magiclink");
                     resetMessages();
                   }}
-                  className={`flex-1 rounded-cloth py-2 font-body text-sm font-semibold ${
-                    method === "magiclink" ? "bg-white shadow-sm" : "text-charcoal/60"
+                  className={`-mb-px border-b-2 pb-3 font-body text-sm font-semibold ${
+                    method === "magiclink" ? "border-coral_ember text-charcoal" : "border-transparent text-charcoal/45"
                   }`}
                 >
                   Email link
@@ -186,13 +200,9 @@ export default function Login() {
                       className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
                     />
                     {error && <p className="mt-1 font-body text-sm text-coral_ember">{error}</p>}
-                    <button
-                      type="submit"
-                      disabled={sending}
-                      className="mt-6 w-full rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
-                    >
+                    <Button type="submit" disabled={sending} className="mt-6 w-full">
                       {sending ? "Sending…" : "Send sign-in link"}
-                    </button>
+                    </Button>
                   </form>
                 </>
               ) : (
@@ -240,13 +250,9 @@ export default function Login() {
                       </button>
                     )}
                     {error && <p className="mt-1 font-body text-sm text-coral_ember">{error}</p>}
-                    <button
-                      type="submit"
-                      disabled={sending}
-                      className="mt-6 w-full rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-50"
-                    >
+                    <Button type="submit" disabled={sending} className="mt-6 w-full">
                       {sending ? "Please wait…" : action === "signin" ? "Sign in" : "Create account"}
-                    </button>
+                    </Button>
                   </form>
                   <button
                     onClick={() => {
@@ -261,6 +267,7 @@ export default function Login() {
               )}
             </>
           )}
+          </div>
         </div>
       </main>
     </>
