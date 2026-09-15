@@ -25,13 +25,13 @@ function OpenBookHero() {
   return (
     <div className="relative mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-cloth bg-ivory_cloth shadow-2xl md:flex-row">
       <div
-        className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-10 -translate-x-1/2 md:block"
+        className="pointer-events-none absolute inset-y-0 left-1/2 z-0 hidden w-6 -translate-x-1/2 md:block"
         style={{
           background:
             "linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0.02) 20%, rgba(0,0,0,0.02) 80%, rgba(0,0,0,0.10))",
         }}
       />
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-indigo_night md:aspect-square">
+      <div className="relative z-10 flex flex-1 items-center justify-center overflow-hidden bg-indigo_night md:aspect-square">
         {/* Generated once via scripts/generate-hero-image.js using the
             app's own OpenAI image pipeline — a real illustrated image,
             not hand-coded SVG shapes (two earlier attempts at that
@@ -44,7 +44,13 @@ function OpenBookHero() {
         <img src="/hero.png" alt="" className="h-full w-full object-cover" />
       </div>
 
-      <div className="relative flex flex-1 flex-col justify-center p-10 md:p-14">
+      {/* Extra left padding beyond the base p-10/p-14 specifically —
+          the spine divider above sits centered across the boundary
+          between the two panels, so uniform padding left the text's
+          own left edge close enough to it that the shadow visually
+          bled onto the first few words. pl-14/pl-20 gives real
+          clearance past that, independent of the other three sides. */}
+      <div className="relative z-10 flex flex-1 flex-col justify-center bg-ivory_cloth py-10 pr-10 pl-14 md:py-14 md:pr-14 md:pl-20">
         <h1 className="font-display text-4xl leading-tight text-charcoal md:text-5xl">
           Get intentional! Shape your child's mind with stories
         </h1>
