@@ -87,7 +87,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           if (!book.story?.childId) {
             throw new Error("This book has no child or character to illustrate for.");
           }
-          const theme = (book.story.brief as any)?.theme as string | undefined;
+          // Uses the ACTUAL generated/approved story content, not just
+          // the brief's short theme string — the brief is what a
+          // parent typed BEFORE Claude wrote anything (often just a
+          // few words), while the real page text is far more specific
+          // about who and what the story is actually about. This is
+          // what makes a default character genuinely reflect the
+          // story that got written, rather than a generic guess from
+          // the original one-line prompt.
+          const firstPagesText = book.pages
+            .slice(0, 2)
+            .map((p: any) => p.text)
+            .filter(Boolean)
+            .join(" ");
+          const theme = firstPagesText || ((book.story.brief as any)?.theme as string | undefined);
           return getOrCreateChildCharacterBible(book.story.childId, auth.familyId, theme);
         })();
     // Always ensure "neutral" exists first, before any page's pose

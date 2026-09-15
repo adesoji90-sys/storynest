@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let voiceId = book.narrationVoice;
   if (!voiceId) {
     const tone = parsed.data.tone || DEFAULT_NARRATION_TONE;
-    voiceId = NARRATION_TONES[tone].voiceId;
+    voiceId = NARRATION_TONES[tone]!.voiceId;
     await prisma.book.update({ where: { id: book.id }, data: { narrationVoice: voiceId } });
   }
 

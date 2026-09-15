@@ -36,8 +36,20 @@ this shape:
   "title": "string",
   "pages": [
     { "text": "2-4 sentence paragraph for this page" }
+  ],
+  "questions": [
+    "A simple comprehension question about the story, appropriate for the child's age/reading level",
+    "A second, different comprehension question",
+    "A third, different comprehension question"
   ]
 }
+
+"questions" must contain EXACTLY three items — these are shown to the
+child (or read aloud to them) on their own page after the story ends,
+to talk about what they just read. Keep them simple and concrete (e.g.
+"What did ${child.name} find in the garden?"), not abstract or
+open-ended in a way a young child couldn't answer from the story
+itself.
 
 The number of items in "pages" should be close to ${targetPages} — a page
 or two more or fewer is fine. Reflect an African-first perspective
@@ -152,7 +164,7 @@ Write the full story now as JSON, following the system instructions exactly.
       },
     });
 
-    let generated: { title?: string; pages?: { text: string }[] };
+    let generated: { title?: string; pages?: { text: string }[]; questions?: string[] };
     try {
       generated = JSON.parse(result.rawText);
     } catch {
@@ -162,6 +174,11 @@ Write the full story now as JSON, following the system instructions exactly.
     if (!generated.title || !Array.isArray(generated.pages) || generated.pages.length === 0) {
       return res.status(502).json({ error: "The generated story was missing a title or pages — try again." });
     }
+    // Lenient on questions specifically — a missing or malformed set of
+    // comprehension questions is a real loss but not a reason to throw
+    // away an otherwise-good story; the parent can still write their
+    // own in the review step.
+    const questions = Array.isArray(generated.questions) && generated.questions.length === 3 ? generated.questions : [];
 
     const latestVersion = await prisma.storyVersion.findFirst({
       where: { storyId },
@@ -176,14 +193,14 @@ Write the full story now as JSON, following the system instructions exactly.
           storyId,
           versionNumber: nextVersionNumber,
           title: generated.title as string,
-          pagesJson: generated.pages as any,
+          pagesJson: { pages: generated.pages, questions } as any,
         },
       });
       await tx.story.update({ where: { id: storyId }, data: { status: "STORY_GENERATED" } });
       return created;
     });
 
-    return res.status(200).json({ versionNumber: version.versionNumber, title: version.title, pages: generated.pages });
+    return res.status(200).json({ versionNumber: version.versionNumber, title: version.title, pages: generated.pages, questions });
   } catch (err) {
     console.error("story-studio generate error:", err);
     return res.status(500).json({ error: "Unexpected server error." });

@@ -62,6 +62,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input." });
     }
     const { pages, ...bookFields } = parsed.data;
+    // Same closing-page idea as Story Studio's custom books (see that
+    // flow's own version of this), but worded for curated library
+    // content specifically — "create your own story" isn't relevant
+    // here the way it is there, and isn't even available to every
+    // family (Reader-tier can't create custom books at all), whereas
+    // "explore more of the library" is a real, available next action
+    // for every family regardless of tier. Added here in the backend,
+    // not admin/books.js's frontend, so it applies whether a book was
+    // written manually or generated with AI — both paths submit
+    // through this same endpoint.
+    const pagesWithClosing = [
+      ...pages,
+      {
+        text: "The End 🎉\n\nLoved this story? There are more books waiting for you in the StoryNest library!",
+      },
+    ];
 
     try {
       const book = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -74,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
         });
         await tx.page.createMany({
-          data: pages.map((p, i) => ({
+          data: pagesWithClosing.map((p, i) => ({
             bookId: created.id,
             pageNumber: i + 1,
             text: p.text,

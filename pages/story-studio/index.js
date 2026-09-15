@@ -38,6 +38,7 @@ export default function StoryStudio() {
   const [draftTitle, setDraftTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [draftPages, setDraftPages] = useState([]);
+  const [draftQuestions, setDraftQuestions] = useState(["", "", ""]);
   const [publishedBookId, setPublishedBookId] = useState(null);
   const [illustrating, setIllustrating] = useState(false);
   const [illustrateDone, setIllustrateDone] = useState(false);
@@ -168,6 +169,7 @@ export default function StoryStudio() {
     if (!res.ok) throw new Error(data.error || "Couldn't generate the story.");
     setDraftTitle(data.title);
     setDraftPages(data.pages.map((p) => p.text));
+    setDraftQuestions(data.questions && data.questions.length === 3 ? data.questions : ["", "", ""]);
     setPhase("reviewing");
   }
 
@@ -188,7 +190,15 @@ export default function StoryStudio() {
     if (!latest) return;
     setStoryId(story.id);
     setDraftTitle(latest.title);
-    setDraftPages(latest.pagesJson.map((p) => p.text));
+    // pagesJson's shape changed to { pages, questions } when this
+    // feature was added — old() versions saved before that change
+    // would have a bare array here instead, so this falls back to
+    // treating pagesJson itself as the pages array in that case rather
+    // than crashing on a resume of a story started before this shipped.
+    const pagesData = Array.isArray(latest.pagesJson) ? latest.pagesJson : latest.pagesJson.pages;
+    const questionsData = Array.isArray(latest.pagesJson) ? [] : latest.pagesJson.questions;
+    setDraftPages(pagesData.map((p) => p.text));
+    setDraftQuestions(questionsData && questionsData.length === 3 ? questionsData : ["", "", ""]);
     setPhase("reviewing");
   }
 
@@ -196,15 +206,37 @@ export default function StoryStudio() {
     setDraftPages((prev) => prev.map((p, i) => (i === index ? value : p)));
   }
 
+  function updateQuestion(index, value) {
+    setDraftQuestions((prev) => prev.map((q, i) => (i === index ? value : q)));
+  }
+
   async function handleApprove() {
     if (draftPages.some((p) => !p.trim())) return setError("Every page needs text — remove any empty ones.");
     setError("");
     setSaving(true);
     try {
+      // The questions page and closing page are flattened into the same
+      // "pages" array approve.ts already expects — they're real,
+      // regular Page rows once saved, not a separate concept the
+      // backend needs to know about. Only added if at least one
+      // question was actually filled in, so a story where all three
+      // were cleared doesn't end with an empty "Let's talk about the
+      // story!" page with nothing under it.
+      const finalPages = [...draftPages.map((text) => ({ text }))];
+      const filledQuestions = draftQuestions.map((q) => q.trim()).filter(Boolean);
+      if (filledQuestions.length > 0) {
+        finalPages.push({
+          text: `Let's talk about the story!\n\n${filledQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`,
+        });
+      }
+      finalPages.push({
+        text: "The End 🎉\n\nWant more stories like this one? There's a whole world of adventures waiting in your StoryNest library!",
+      });
+
       const res = await fetch(`/api/story-studio/${storyId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ title: draftTitle, authorName: authorName.trim() || undefined, pages: draftPages.map((text) => ({ text })) }),
+        body: JSON.stringify({ title: draftTitle, authorName: authorName.trim() || undefined, pages: finalPages }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't approve the story.");
@@ -385,6 +417,23 @@ export default function StoryStudio() {
                   className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
                 />
               ))}
+
+              <h3 className="mt-6 font-body font-semibold">
+                Questions about the story <span className="font-normal text-charcoal/50">(shown on their own page at the end)</span>
+              </h3>
+              {draftQuestions.map((q, i) => (
+                <input
+                  key={i}
+                  value={q}
+                  onChange={(e) => updateQuestion(i, e.target.value)}
+                  placeholder={`Question ${i + 1}`}
+                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body text-sm"
+                />
+              ))}
+              <p className="mt-1 font-body text-xs text-charcoal/50">
+                Leave all three blank to skip this page. A final "The End" page — with a little nudge toward reading more — is always added after.
+              </p>
+
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   onClick={handleApprove}
