@@ -450,3 +450,14 @@ on conflict (id) do update set public = false;
 insert into storage.buckets (id, name, public)
 values ('book-pdfs', 'book-pdfs', true)
 on conflict (id) do update set public = true;
+
+-- ─────────────────────────────────────────────────────────────
+-- PRINT ORDERS — plan entitlement update
+-- ─────────────────────────────────────────────────────────────
+-- print_orders_allowed is a NEW column (added via the matching Prisma
+-- migration, which must run before this) — explicit updates here
+-- rather than relying on the plans insert above, since that statement
+-- is "on conflict do nothing" and won't touch these rows now that they
+-- already exist from earlier seeding.
+update public.plans set print_orders_allowed = false where code = 'reader';
+update public.plans set print_orders_allowed = true where code = 'family';

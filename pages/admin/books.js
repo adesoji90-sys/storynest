@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
+import AdminHeader from "@/components/AdminHeader";
 
 const READING_LEVELS = ["Beginner", "Early reader", "Independent", "Fluent"];
 
@@ -294,10 +295,7 @@ function emptyForm() {
         <title>Admin — Books</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
-        <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
-          <span className="font-display text-xl">StoryNest Admin</span>
-          <Link href="/account" className="font-body text-sm text-charcoal/60">← Back to site</Link>
-        </header>
+        <AdminHeader />
 
         <div className="mx-auto max-w-3xl px-6 pb-24">
           <h1 className="font-display text-3xl">Curated library books</h1>

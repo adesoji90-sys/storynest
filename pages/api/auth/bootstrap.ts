@@ -18,17 +18,7 @@
 // user's identity comes only from verifying their real Supabase access
 // token server-side via supabaseAdmin.auth.getUser(token). A client
 // claiming to be a different user's id would fail this check entirely.
-
-import type { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
-);
-
+//
 // Step 11: every family gets a default Entitlement copying the "reader"
 // Plan's limits the moment it's created — this is what makes
 // max_children enforcement (see /api/children) possible for every
@@ -40,6 +30,21 @@ const supabaseAdmin = createClient(
 // no entitlement yet just means limits aren't enforced for them until
 // the plan exists and this is reconciled, not a reason to block every
 // new account.
+
+import type { NextApiRequest, NextApiResponse } from "next";
+import { createClient } from "@supabase/supabase-js";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
+);
+
+type BootstrapResponse =
+  | { ok: true; familyId: string }
+  | { error: string };
+
 async function createDefaultEntitlement(tx: Prisma.TransactionClient, familyId: string) {
   const basePlan = await tx.plan.findUnique({ where: { code: "reader" } });
   if (!basePlan) {
@@ -55,13 +60,10 @@ async function createDefaultEntitlement(tx: Prisma.TransactionClient, familyId: 
       customBookCreditsTotal: basePlan.customBookCredits,
       narrationAllowed: basePlan.narrationAllowed,
       premiumImagesAllowed: basePlan.premiumImagesAllowed,
+      printOrdersAllowed: basePlan.printOrdersAllowed,
     },
   });
 }
-
-type BootstrapResponse =
-  | { ok: true; familyId: string }
-  | { error: string };
 
 export default async function handler(
   req: NextApiRequest,
@@ -107,24 +109,24 @@ export default async function handler(
       // inconsistent state that shouldn't occur via this endpoint alone,
       // but worth healing rather than erroring, since the alternative is
       // a permanently broken account with no clear recovery path.
-      // Wrapped in a transaction for the same reason as the new-user
-      // path below — a family created without its entitlement is the
-      // same kind of inconsistent state this branch exists to fix, not
-      // one it should risk creating.
-      const healedFamilyId = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Transactional, same as the new-user path below — a family
+      // created here should never end up without its own entitlement
+      // either.
+      const familyId2 = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const family = await tx.family.create({
           data: { members: { create: { userId, role: "OWNER" } } },
         });
         await createDefaultEntitlement(tx, family.id);
         return family.id;
       });
-      return res.status(200).json({ ok: true, familyId: healedFamilyId });
+      return res.status(200).json({ ok: true, familyId: familyId2 });
     }
 
-    // Genuinely new user: create User + Family + FamilyMember together.
-    // Wrapped in a transaction so a failure partway through (e.g. the
-    // family create succeeding but something after it failing) can
-    // never leave a User row with no family, or a family with no owner.
+    // Genuinely new user: create User + Family + FamilyMember +
+    // Entitlement together. Wrapped in a transaction so a failure
+    // partway through (e.g. the family create succeeding but something
+    // after it failing) can never leave a User row with no family, a
+    // family with no owner, or a family with no entitlement.
     const familyId = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.user.create({
         data: { id: userId, email },

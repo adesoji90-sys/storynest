@@ -16,8 +16,14 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
+);
 
 const CreateAssignmentSchema = z.object({
   bookId: z.string().uuid(),
@@ -58,6 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ageRangeMax: true,
               readingLevel: true,
               category: true,
+              coverAsset: { select: { bucket: true, storageKey: true } },
               _count: { select: { pages: true } },
             },
           },
@@ -78,8 +85,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const withProgress = assignments.map((a: any) => {
         const p = progressByBookId[a.bookId];
+        const coverUrl = a.book.coverAsset
+          ? supabaseAdmin.storage.from(a.book.coverAsset.bucket).getPublicUrl(a.book.coverAsset.storageKey).data.publicUrl
+          : null;
         return {
           ...a,
+          book: { ...a.book, coverUrl, coverAsset: undefined },
           progress: p ? { percentage: p.percentage, completedAt: p.completedAt } : null,
         };
       });

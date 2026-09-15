@@ -14,10 +14,15 @@
 // family's personalized) book, which only ever gets created through the
 // parent-facing Story Studio flow, not the admin panel.
 
+export const config = {
+  maxDuration: 280, // cover generation added a real image-generation call to this route — same budget as illustrate/narrate routes, which need it for the same reason
+};
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getOrCreateGenericBookCharacterBible, generateBookCover } from "@/lib/illustration";
 import { requireAdmin } from "@/lib/authAdmin";
 
 const CreateBookSchema = z.object({
@@ -99,7 +104,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
         return created;
       });
-      return res.status(201).json({ book });
+
+      // Cover generated right away, not left until "Illustrate this
+      // book" is clicked separately — the library's 3D cover mockup
+      // otherwise falls back to a plain color block for every book
+      // until an admin remembers to illustrate it, which was the
+      // actual gap this closes. Wrapped in its own try/catch: the book
+      // itself is already successfully created by this point, and a
+      // cover-generation failure shouldn't undo that or fail this
+      // request — it just means the library shows the plain fallback
+      // a bit longer, same as before this change existed.
+      try {
+        const characterBible = await getOrCreateGenericBookCharacterBible(book.id, book.title, book.category);
+        await generateBookCover({
+          bookId: book.id,
+          title: book.title,
+          characterBible,
+          familyId: null,
+          userId: auth.userId,
+        });
+      } catch (coverErr) {
+        console.error(`Cover generation failed for new book ${book.id}:`, coverErr);
+      }
+
+      const bookWithCover = await prisma.book.findUnique({
+        where: { id: book.id },
+        include: { coverAsset: { select: { bucket: true, storageKey: true } } },
+      });
+
+      return res.status(201).json({ book: bookWithCover });
     } catch (err) {
       console.error("admin/books POST error:", err);
       return res.status(500).json({ error: "Unexpected server error." });

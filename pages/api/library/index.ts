@@ -37,6 +37,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { ageRange, category, readingLevel } = req.query;
 
+  // Family lookup here is ONLY to surface printOrdersAllowed to the
+  // UI — this route stays intentionally not family-scoped otherwise
+  // (see this file's own top comment), since curated books are shared
+  // regardless of which family is asking.
+  const membership = await prisma.familyMember.findFirst({
+    where: { userId: userData.user.id },
+    select: { familyId: true },
+  });
+  const entitlement = membership
+    ? await prisma.entitlement.findUnique({ where: { familyId: membership.familyId }, select: { printOrdersAllowed: true } })
+    : null;
+
   try {
     const books = await prisma.book.findMany({
       where: {
@@ -84,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       coverAsset: undefined,
       pdfAsset: undefined,
     }));
-    return res.status(200).json({ books: booksWithCovers });
+    return res.status(200).json({ books: booksWithCovers, printOrdersAllowed: entitlement?.printOrdersAllowed ?? false });
   } catch (err) {
     console.error("library GET error:", err);
     return res.status(500).json({ error: "Unexpected server error." });

@@ -15,6 +15,10 @@ export default function Library() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [assigningBookId, setAssigningBookId] = useState(null);
+  const [printingBookId, setPrintingBookId] = useState(null);
+  const [printOrdersAllowed, setPrintOrdersAllowed] = useState(false);
+  const [printForm, setPrintForm] = useState({ coverType: "softback", recipientName: "", recipientPhone: "", deliveryAddress: "" });
+  const [printSubmitting, setPrintSubmitting] = useState(false);
   const [assignedMap, setAssignedMap] = useState({}); // childId -> Set of bookIds
 
   useEffect(() => {
@@ -45,6 +49,7 @@ export default function Library() {
         if (!libRes.ok) throw new Error(libData.error || "Couldn't load the library.");
         if (!famRes.ok) throw new Error(famData.error || "Couldn't load your family.");
         setBooks(libData.books);
+        setPrintOrdersAllowed(libData.printOrdersAllowed ?? false);
         setChildren(famData.children);
 
         // Load each child's current assignments so already-assigned books
@@ -115,6 +120,30 @@ export default function Library() {
       setAssigningBookId(null);
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function handleOrderPrint(bookId) {
+    setError("");
+    if (!printForm.recipientName.trim() || !printForm.recipientPhone.trim() || !printForm.deliveryAddress.trim()) {
+      return setError("Fill in a name, phone number, and delivery address.");
+    }
+    setPrintSubmitting(true);
+    try {
+      const res = await fetch("/api/print-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ bookId, ...printForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't start the order.");
+      // Redirects straight to Paystack's own checkout — "pay
+      // immediately upon request" means there's no intermediate review
+      // step once the form is submitted.
+      window.location.href = data.authorizationUrl;
+    } catch (err) {
+      setError(err.message);
+      setPrintSubmitting(false);
     }
   }
 
@@ -240,6 +269,67 @@ export default function Library() {
                         >
                           Assign to a child
                         </button>
+                      )}
+
+                      {printOrdersAllowed && (
+                        printingBookId === book.id ? (
+                          <div className="mt-3 rounded-cloth bg-ivory_cloth p-4">
+                            <p className="font-body text-sm font-semibold">Order a printed copy</p>
+                            <p className="mt-1 font-body text-xs text-charcoal/50">Delivered in 4–7 days. Paid immediately.</p>
+                            <div className="mt-3 flex gap-2">
+                              <button
+                                onClick={() => setPrintForm((f) => ({ ...f, coverType: "softback" }))}
+                                className={`flex-1 rounded-cloth border-2 px-3 py-2 font-body text-sm font-semibold ${printForm.coverType === "softback" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"}`}
+                              >
+                                Softback — ₦15,000
+                              </button>
+                              <button
+                                onClick={() => setPrintForm((f) => ({ ...f, coverType: "hardback" }))}
+                                className={`flex-1 rounded-cloth border-2 px-3 py-2 font-body text-sm font-semibold ${printForm.coverType === "hardback" ? "border-coral_ember bg-coral_ember/5" : "border-charcoal/15"}`}
+                              >
+                                Hardback — ₦22,000
+                              </button>
+                            </div>
+                            <input
+                              value={printForm.recipientName}
+                              onChange={(e) => setPrintForm((f) => ({ ...f, recipientName: e.target.value }))}
+                              placeholder="Recipient name"
+                              className="mt-3 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                            />
+                            <input
+                              value={printForm.recipientPhone}
+                              onChange={(e) => setPrintForm((f) => ({ ...f, recipientPhone: e.target.value }))}
+                              placeholder="Phone number"
+                              className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                            />
+                            <textarea
+                              value={printForm.deliveryAddress}
+                              onChange={(e) => setPrintForm((f) => ({ ...f, deliveryAddress: e.target.value }))}
+                              placeholder="Delivery address"
+                              rows={2}
+                              className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                            />
+                            <div className="mt-3 flex gap-3">
+                              <button
+                                onClick={() => handleOrderPrint(book.id)}
+                                disabled={printSubmitting}
+                                className="rounded-cloth bg-indigo_night px-4 py-2 font-body text-sm font-bold text-ivory_cloth disabled:opacity-50"
+                              >
+                                {printSubmitting ? "Starting payment…" : "Pay & order"}
+                              </button>
+                              <button onClick={() => setPrintingBookId(null)} className="font-body text-sm text-charcoal/40">
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setPrintingBookId(book.id)}
+                            className="mt-2 block font-body text-sm font-semibold text-indigo_night"
+                          >
+                            🖨️ Order a printed copy
+                          </button>
+                        )
                       )}
                     </div>
                   )}

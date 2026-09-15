@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import { getReadingModeChildId, exitReadingMode } from "@/lib/readingMode";
 import ExitReadingModeGate from "@/components/ExitReadingModeGate";
+import BookCover from "@/components/BookCover";
 
 // The locked-down hub a child actually sees — no family management, no
 // Story Studio, no library browsing, just their own assigned books and
@@ -106,7 +107,7 @@ export default function ReadingMode() {
                   href={`/read/${a.book.id}?childId=${childId}`}
                   className="flex flex-col items-center rounded-cloth bg-white p-6 text-center shadow-sm transition hover:shadow-md"
                 >
-                  <span className="text-4xl">📖</span>
+                  <BookCover coverUrl={a.book.coverUrl} title={a.book.title} className="w-32" />
                   <span className="mt-3 font-display text-lg">{a.book.title}</span>
                   {a.progress?.completedAt ? (
                     <span className="mt-1 font-body text-sm font-semibold text-leaf">✓ Finished</span>

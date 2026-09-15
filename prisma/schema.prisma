@@ -110,6 +110,7 @@ model Family {
   stories         Story[]
   generationJobs  GenerationJob[]
   aiUsageRecords  AIUsageRecord[]
+  printOrders     PrintOrder[]
 
   @@map("families")
   @@schema("public")
@@ -173,6 +174,7 @@ model Child {
   readingSessions ReadingSession[]
   stories         Story[]
   characterBibles CharacterBible[]
+  printOrders     PrintOrder[]
 
   @@map("children")
   @@schema("public")
@@ -197,6 +199,7 @@ model Plan {
   customBookCredits    Int?             @map("custom_book_credits") // null = no separate cap beyond other plan limits
   narrationAllowed     Boolean          @default(false) @map("narration_allowed")
   premiumImagesAllowed Boolean          @default(false) @map("premium_images_allowed")
+  printOrdersAllowed   Boolean          @default(false) @map("print_orders_allowed")
   priceMinorUnits      Int              @map("price_minor_units") // kobo — see AIUsageRecord for why money is never a float here
   currency             String           @default("NGN")
   billingInterval      BillingInterval  @default(MONTHLY) @map("billing_interval")
@@ -268,6 +271,16 @@ model Entitlement {
   customBookCreditsUsed  Int       @default(0) @map("custom_book_credits_used")
   narrationAllowed       Boolean   @map("narration_allowed")
   premiumImagesAllowed   Boolean   @map("premium_images_allowed")
+  // New, separate from the two above deliberately — those two exist in
+  // the schema but were NEVER actually enforced anywhere (found while
+  // adding this field), and their seed data defaults both to false for
+  // every plan, which is now stale relative to reality (narration was
+  // later confirmed to work on both tiers). Enforcing them as they
+  // currently stand would silently break narration — flagged, not
+  // fixed, since that needs an explicit decision, not a silent side
+  // effect of adding an unrelated field. printOrdersAllowed starts
+  // clean, actually enforced from day one, no stale-default risk.
+  printOrdersAllowed     Boolean   @default(false) @map("print_orders_allowed")
   periodResetsAt         DateTime? @map("period_resets_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
@@ -440,6 +453,7 @@ model Book {
   family      Family?          @relation(fields: [familyId], references: [id], onDelete: Cascade)
   pages       Page[]
   characters  BookCharacter[]
+  printOrders PrintOrder[]
   assignments BookAssignment[]
   story       Story?
   generationJobs GenerationJob[]
@@ -754,6 +768,41 @@ model AIUsageRecord {
   page   Page?  @relation(fields: [pageId], references: [id])
 
   @@map("ai_usage_records")
+  @@schema("public")
+}
+
+// A physical print request for a book — softback or hardback, paid
+// immediately via Paystack before anything is fulfilled. Deliberately
+// its own model rather than reusing the old system's "orders" table
+// (pages/api/paystack-webhook.js) — that table and its webhook logic
+// are tied to the OLD subscription/profile model, not this schema, and
+// entangling a new feature with old, unrelated logic risked breaking
+// both. status starts at "pending_payment" and only ever moves forward
+// via a verified Paystack webhook event, never a client-supplied value
+// — the same "never trust the client for what money changed hands"
+// principle as everywhere else payment-adjacent in this codebase.
+model PrintOrder {
+  id                 String   @id @default(uuid()) @db.Uuid
+  familyId           String   @map("family_id") @db.Uuid
+  bookId             String   @map("book_id") @db.Uuid
+  childId            String?  @map("child_id") @db.Uuid
+  coverType          String   @map("cover_type") // "softback" | "hardback"
+  priceMinorUnits    Int      @map("price_minor_units") // kobo — see AIUsageRecord for why money is never a float here
+  currency           String   @default("NGN")
+  recipientName      String   @map("recipient_name")
+  recipientPhone     String   @map("recipient_phone")
+  deliveryAddress    String   @map("delivery_address")
+  status             String   @default("pending_payment") // pending_payment | paid | processing | shipped | delivered | cancelled
+  paystackReference  String?  @unique @map("paystack_reference")
+  adminNotifiedAt    DateTime? @map("admin_notified_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  book   Book   @relation(fields: [bookId], references: [id])
+  child  Child? @relation(fields: [childId], references: [id])
+
+  @@map("print_orders")
   @@schema("public")
 }
 

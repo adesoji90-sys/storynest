@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import { getReadingModeChildId } from "@/lib/readingMode";
+import { Button } from "@/components/ui";
 
 export default function Reader() {
   const router = useRouter();
@@ -240,20 +241,12 @@ export default function Reader() {
         </div>
 
         <div className="flex items-center justify-between px-6 pb-8">
-          <button
-            onClick={() => goToPage(pageIndex - 1)}
-            disabled={isFirst}
-            className="rounded-cloth border border-charcoal/15 px-6 py-3 font-body font-semibold disabled:opacity-30"
-          >
+          <Button variant="outline" onClick={() => goToPage(pageIndex - 1)} disabled={isFirst}>
             ← Previous
-          </button>
-          <button
-            onClick={() => goToPage(pageIndex + 1)}
-            disabled={isLast}
-            className="rounded-cloth bg-coral_ember px-6 py-3 font-body font-bold text-white disabled:opacity-30"
-          >
+          </Button>
+          <Button onClick={() => goToPage(pageIndex + 1)} disabled={isLast}>
             Next →
-          </button>
+          </Button>
         </div>
       </main>
     </>
