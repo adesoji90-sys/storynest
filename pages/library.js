@@ -4,14 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import BookCover from "@/components/BookCover";
-
-function Badge({ children }) {
-  return (
-    <span className="rounded-full border border-charcoal/15 px-2 py-0.5 font-body text-xs text-charcoal/60">
-      {children}
-    </span>
-  );
-}
+import AppHeader from "@/components/AppHeader";
+import { Card, Badge, EmptyState } from "@/components/ui";
 
 export default function Library() {
   const router = useRouter();
@@ -132,35 +126,36 @@ export default function Library() {
         <title>Library — StoryNest</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
-        <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
-          <Link href="/" className="font-display text-xl">StoryNest</Link>
-          <Link href="/family" className="font-body text-sm text-charcoal/60">Your family →</Link>
-        </header>
+        <AppHeader />
 
-        <div className="mx-auto max-w-3xl px-6 pb-24">
+        <div className="mx-auto max-w-3xl px-6 py-10">
           <h1 className="font-display text-3xl">Library</h1>
           <p className="mt-2 font-body text-charcoal/70">Pick a book and assign it to a child to start reading.</p>
 
           {error && <p className="mt-4 font-body text-sm text-coral_ember">{error}</p>}
 
           {children.length === 0 && !loading && (
-            <div className="mt-6 rounded-cloth bg-white p-5 shadow-sm">
+            <Card className="mt-6">
               <p className="font-body">
                 You don't have any children added yet —{" "}
                 <Link href="/family" className="font-semibold text-coral_ember">add one first</Link> before assigning
                 books.
               </p>
-            </div>
+            </Card>
           )}
 
           {loading ? (
             <p className="mt-8 font-body text-charcoal/50">Loading…</p>
           ) : books.length === 0 ? (
-            <p className="mt-8 font-body text-charcoal/50">No books published yet — check back soon.</p>
+            <EmptyState
+              title="No books published yet"
+              body="Check back soon — new stories are added to the library regularly."
+              className="mt-8"
+            />
           ) : (
             <div className="mt-6 space-y-4">
               {books.map((book) => (
-                <div key={book.id} className="flex gap-4 rounded-cloth bg-white p-5 shadow-sm">
+                <Card key={book.id} className="flex gap-4">
                   <BookCover coverUrl={book.coverUrl} title={book.title} className="w-24" />
                   <div className="flex-1">
                   <p className="font-body text-lg font-bold">{book.title}</p>
@@ -249,7 +244,7 @@ export default function Library() {
                     </div>
                   )}
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}

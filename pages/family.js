@@ -5,20 +5,14 @@ import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import { enterReadingMode } from "@/lib/readingMode";
 import ReadingModePinSetup from "@/components/ReadingModePinSetup";
+import AppHeader from "@/components/AppHeader";
+import { Card, Button, Badge, EmptyState } from "@/components/ui";
 
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return null;
   const dob = new Date(dateOfBirth);
   const diff = Date.now() - dob.getTime();
   return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
-}
-
-function Badge({ children }) {
-  return (
-    <span className="rounded-full border border-charcoal/15 px-2 py-0.5 font-body text-xs text-charcoal/60">
-      {children}
-    </span>
-  );
 }
 
 function ProgressTag({ progress }) {
@@ -289,16 +283,9 @@ export default function Family() {
         <title>Your family — StoryNest</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
-        <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
-          <Link href="/" className="font-display text-xl">StoryNest</Link>
-          <div className="flex items-center gap-5">
-            <Link href="/library" className="font-body text-sm text-charcoal/60">Library</Link>
-            <Link href="/story-studio" className="font-body text-sm text-charcoal/60">Story Studio</Link>
-            <Link href="/account" className="font-body text-sm text-charcoal/60">My Library →</Link>
-          </div>
-        </header>
+        <AppHeader />
 
-        <div className="mx-auto max-w-3xl px-6 pb-24">
+        <div className="mx-auto max-w-3xl px-6 py-10">
           <h1 className="font-display text-3xl">Your family</h1>
           <p className="mt-2 font-body text-charcoal/70">
             Add each child who'll be reading — their own profile, their own reading progress.
@@ -310,6 +297,15 @@ export default function Family() {
             <p className="mt-8 font-body text-charcoal/50">Loading…</p>
           ) : (
             <div className="mt-8 space-y-4">
+              {children.length === 0 && !adding && (
+                <EmptyState
+                  title="No children added yet"
+                  body="Add your first child to start assigning them books to read."
+                  action={
+                    <Button onClick={() => setAdding(true)}>+ Add a child</Button>
+                  }
+                />
+              )}
               {children.map((child) => {
                 const age = calculateAge(child.dateOfBirth);
                 return (
@@ -322,7 +318,7 @@ export default function Family() {
                         onSave={(payload) => handleUpdate(child.id, payload)}
                       />
                     ) : (
-                      <div className="rounded-cloth bg-white p-5 shadow-sm">
+                      <Card>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-body font-bold">
@@ -358,12 +354,13 @@ export default function Family() {
                             </p>
                           ) : (
                             <>
-                              <button
+                              <Button
+                                variant="dark"
                                 onClick={() => handleStartReadingMode(child.id)}
-                                className="mb-3 w-full rounded-cloth bg-indigo_night px-4 py-2.5 font-body font-bold text-white"
+                                className="mb-3 w-full"
                               >
                                 📖 Start Reading Mode for {child.name}
-                              </button>
+                              </Button>
                               <div className="space-y-2">
                               {assignmentsByChild[child.id].map((a) => (
                                 <Link
@@ -390,7 +387,7 @@ export default function Family() {
                             </>
                           )}
                         </div>
-                      </div>
+                      </Card>
                     )}
                   </div>
                 );
@@ -399,12 +396,14 @@ export default function Family() {
               {adding ? (
                 <ChildForm saving={saving} onCancel={() => setAdding(false)} onSave={handleAdd} />
               ) : (
-                <button
-                  onClick={() => setAdding(true)}
-                  className="w-full rounded-cloth border-2 border-dashed border-charcoal/20 py-4 font-body font-semibold text-charcoal/60"
-                >
-                  + Add a child
-                </button>
+                children.length > 0 && (
+                  <button
+                    onClick={() => setAdding(true)}
+                    className="w-full rounded-cloth border-2 border-dashed border-charcoal/20 py-4 font-body font-semibold text-charcoal/60"
+                  >
+                    + Add a child
+                  </button>
+                )
               )}
             </div>
           )}
