@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "Couldn't find an email on your account to send the receipt to." });
   }
 
-  const priceMinorUnits = PRINT_PRICES_KOBO[coverType];
+  const priceMinorUnits = PRINT_PRICES_KOBO[coverType]!;
 
   try {
     const order = await prisma.printOrder.create({
