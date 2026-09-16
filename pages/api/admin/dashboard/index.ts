@@ -6,6 +6,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authAdmin";
+import { USD_TO_NGN_KOBO_RATE } from "@/lib/ai/costEstimate";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -75,15 +76,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     title: bookById[c.bookId]?.title || "Deleted book",
     type: bookById[c.bookId]?.type || null,
     totalCostMinorUnits: c._sum.estimatedCostMinorUnits || 0,
+    totalCostUsd: (c._sum.estimatedCostMinorUnits || 0) / USD_TO_NGN_KOBO_RATE,
     operationCount: c._count.id,
   }));
 
   return res.status(200).json({
     recentJobs,
     activeJobCount: activeJobs,
+    // usdToNgnRate is kobo-per-dollar (matches how every cost figure in
+    // this app is actually stored) — the dashboard divides by this to
+    // show the same USD figure it used to derive each NGN one, rather
+    // than showing a converted number with no visible source for it.
+    usdToNgnKoboRate: USD_TO_NGN_KOBO_RATE,
     costByOperation: costByOperation.map((c: any) => ({
       operationType: c.operationType,
       totalCostMinorUnits: c._sum.estimatedCostMinorUnits || 0,
+      totalCostUsd: (c._sum.estimatedCostMinorUnits || 0) / USD_TO_NGN_KOBO_RATE,
       count: c._count.id,
     })),
     costByBook,

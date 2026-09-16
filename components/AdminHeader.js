@@ -16,6 +16,7 @@ import { useRouter } from "next/router";
 const ADMIN_NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/books", label: "Books" },
+  { href: "/admin/library", label: "Library" },
   { href: "/admin/print-orders", label: "Print orders" },
 ];
 

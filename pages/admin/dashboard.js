@@ -133,40 +133,63 @@ export default function AdminDashboard() {
                 <p className="font-body font-bold">AI spend by operation</p>
                 <p className="mt-1 font-body text-xs text-charcoal/50">
                   Estimated, not exact — see each provider's own cost-estimate comments in the code for known accuracy caveats.
+                  Converted at ₦{(data.usdToNgnKoboRate / 100).toLocaleString()} per $1 — a placeholder rate, not a live one; update
+                  it in lib/ai/costEstimate.ts if it drifts from reality.
                 </p>
-                <div className="mt-4 space-y-2">
-                  {data.costByOperation.map((c) => (
-                    <div key={c.operationType} className="flex items-center justify-between border-b border-charcoal/10 pb-2">
-                      <span className="font-body text-sm">{c.operationType} <span className="text-charcoal/40">({c.count})</span></span>
-                      <span className="font-body text-sm font-semibold">₦{(c.totalCostMinorUnits / 100).toLocaleString()}</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="font-body font-bold">Total</span>
-                    <span className="font-body font-bold">₦{(totalCostKobo / 100).toLocaleString()}</span>
-                  </div>
-                </div>
+                <table className="mt-4 w-full font-body text-sm">
+                  <thead>
+                    <tr className="border-b border-charcoal/10 text-left text-xs text-charcoal/40">
+                      <th className="pb-2 font-normal">Operation</th>
+                      <th className="pb-2 text-right font-normal">USD</th>
+                      <th className="pb-2 text-right font-normal">NGN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.costByOperation.map((c) => (
+                      <tr key={c.operationType} className="border-b border-charcoal/10">
+                        <td className="py-2">{c.operationType} <span className="text-charcoal/40">({c.count})</span></td>
+                        <td className="py-2 text-right">${c.totalCostUsd.toFixed(2)}</td>
+                        <td className="py-2 text-right font-semibold">₦{(c.totalCostMinorUnits / 100).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td className="pt-2 font-bold">Total</td>
+                      <td className="pt-2 text-right font-bold">${(totalCostKobo / data.usdToNgnKoboRate).toFixed(2)}</td>
+                      <td className="pt-2 text-right font-bold">₦{(totalCostKobo / 100).toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </Card>
 
               <Card className="mt-6">
                 <p className="font-body font-bold">Cost per book</p>
                 <p className="mt-1 font-body text-xs text-charcoal/50">Top 20 by spend — text, illustration, and narration combined.</p>
-                <div className="mt-4 space-y-2">
-                  {data.costByBook.length === 0 ? (
-                    <p className="font-body text-sm text-charcoal/50">No AI generation costs recorded yet.</p>
-                  ) : (
-                    data.costByBook.map((b) => (
-                      <div key={b.bookId} className="flex items-center justify-between border-b border-charcoal/10 pb-2">
-                        <div>
-                          <span className="font-body text-sm font-semibold">{b.title}</span>
-                          {b.type && <Badge className="ml-2">{b.type}</Badge>}
-                          <span className="ml-2 font-body text-xs text-charcoal/40">{b.operationCount} operation{b.operationCount !== 1 ? "s" : ""}</span>
-                        </div>
-                        <span className="font-body text-sm font-semibold">₦{(b.totalCostMinorUnits / 100).toLocaleString()}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
+                {data.costByBook.length === 0 ? (
+                  <p className="mt-4 font-body text-sm text-charcoal/50">No AI generation costs recorded yet.</p>
+                ) : (
+                  <table className="mt-4 w-full font-body text-sm">
+                    <thead>
+                      <tr className="border-b border-charcoal/10 text-left text-xs text-charcoal/40">
+                        <th className="pb-2 font-normal">Book</th>
+                        <th className="pb-2 text-right font-normal">USD</th>
+                        <th className="pb-2 text-right font-normal">NGN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.costByBook.map((b) => (
+                        <tr key={b.bookId} className="border-b border-charcoal/10">
+                          <td className="py-2">
+                            {b.title}
+                            {b.type && <Badge className="ml-2">{b.type}</Badge>}
+                            <span className="ml-2 text-xs text-charcoal/40">{b.operationCount} op{b.operationCount !== 1 ? "s" : ""}</span>
+                          </td>
+                          <td className="py-2 text-right">${b.totalCostUsd.toFixed(2)}</td>
+                          <td className="py-2 text-right font-semibold">₦{(b.totalCostMinorUnits / 100).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </Card>
 
               <Card className="mt-6">

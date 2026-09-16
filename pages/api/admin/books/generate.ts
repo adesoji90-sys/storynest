@@ -18,6 +18,19 @@
 // Still text-only — illustration generation remains a separate, later
 // pass reusing Story Studio's image pipeline once that exists (see
 // index.ts's comment on why that's not folded in here).
+//
+// TIMEOUT: previously had none, unlike the image/narration routes —
+// a real, found gap. Without an explicit maxDuration, Vercel's default
+// (much shorter) timeout can kill this function mid-request for a
+// longer book (more pages requested, or Claude responding slower than
+// usual), and the PLATFORM's own generic error page gets returned
+// instead of JSON — which is exactly what "Unexpected token 'A', "An
+// error o"... is not valid JSON" looks like client-side: the frontend
+// expects JSON and gets Vercel's own crash page instead, before this
+// file's own try/catch ever got a chance to run.
+export const config = {
+  maxDuration: 120,
+};
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";

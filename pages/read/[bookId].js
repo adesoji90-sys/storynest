@@ -221,7 +221,7 @@ export default function Reader() {
           </div>
 
           <div className="relative flex flex-1 flex-col justify-center p-6 text-center md:p-10 md:text-left">
-            <p className="font-body text-xl leading-relaxed">{page.text}</p>
+            <p className="whitespace-pre-line font-body text-xl leading-relaxed">{page.text}</p>
 
             {page.narrationUrl && (
               <div className="mt-6">

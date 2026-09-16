@@ -12,6 +12,15 @@
 // Still text-only, same reasoning as admin content generation:
 // illustration is separate, later, expensive work that only happens
 // after a story is approved (Section 14).
+//
+// TIMEOUT: previously had none — see admin/books/generate.ts's matching
+// comment for the full reasoning. A real, found gap: Vercel's default
+// timeout could kill a slower generation before this file's own error
+// handling ever ran, returning the platform's own generic HTML error
+// page instead of JSON.
+export const config = {
+  maxDuration: 120,
+};
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
@@ -57,7 +66,16 @@ naturally (Nigerian/African names, families, environments, settings)
 without stereotyping. Avoid anything frightening, violent, or otherwise
 inappropriate for the child's age. If a lesson is specified in the brief,
 let the story's ending embody it naturally rather than stating it as a
-moral.`;
+moral.
+
+CONSISTENCY, checked carefully before responding: once you describe a
+physical detail about a character — clothing, an object they're
+carrying, a physical feature, a setting's appearance — that detail must
+stay exactly the same everywhere else it comes up in the story. Do not
+introduce a new, contradictory version of something already described
+(e.g. a dress described as blue on one page must not become yellow on
+a later page). If a detail doesn't need restating, leave it out rather
+than risk describing it differently.`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

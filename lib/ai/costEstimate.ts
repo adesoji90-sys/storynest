@@ -15,7 +15,7 @@
 
 const CLAUDE_COST_PER_MILLION_INPUT_TOKENS_USD = 3;
 const CLAUDE_COST_PER_MILLION_OUTPUT_TOKENS_USD = 15;
-const USD_TO_NGN_KOBO_RATE = 150000; // 1 USD ≈ ₦1,500 = 150,000 kobo — placeholder, update against a real rate
+export const USD_TO_NGN_KOBO_RATE = 150000; // 1 USD ≈ ₦1,500 = 150,000 kobo — placeholder, update against a real rate. Exported (not just used internally) so the dashboard can display the actual rate behind its NGN figures, not just the converted numbers.
 
 export function estimateStoryGenerationCostKobo(inputTokens: number | null, outputTokens: number | null): number {
   const inputCostUsd = ((inputTokens || 0) / 1_000_000) * CLAUDE_COST_PER_MILLION_INPUT_TOKENS_USD;
