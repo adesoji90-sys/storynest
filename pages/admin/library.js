@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import AdminHeader from "@/components/AdminHeader";
@@ -83,6 +84,12 @@ export default function AdminLibrary() {
                       {book.category && <Badge>{book.category}</Badge>}
                       <Badge>{book._count?.pages ?? "?"} pages</Badge>
                     </div>
+                    <Link
+                      href={`/admin/books/${book.id}/preview`}
+                      className="mt-2 inline-block font-body text-sm font-semibold text-coral_ember"
+                    >
+                      Open →
+                    </Link>
                   </div>
                 </Card>
               ))}

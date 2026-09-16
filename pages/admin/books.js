@@ -568,6 +568,12 @@ function emptyForm() {
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-col gap-2">
+                          <Link
+                            href={`/admin/books/${book.id}/preview`}
+                            className="rounded-cloth border border-charcoal/15 px-4 py-2 text-center font-body text-sm font-semibold"
+                          >
+                            👁️ Preview
+                          </Link>
                           <button
                             onClick={() => illustrateBook(book)}
                             disabled={illustratingBookId === book.id}
