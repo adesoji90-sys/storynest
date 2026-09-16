@@ -39,15 +39,14 @@ export function estimateImageGenerationCostKobo(quality: string): number {
   return Math.round(costUsd * USD_TO_NGN_KOBO_RATE);
 }
 
-// UNVERIFIED placeholder, more so than the other estimates in this file
-// — gpt-4o-mini-tts is a newer model and this wasn't checked against a
-// live current pricing page the way the image figures were sourced
-// from lib/imageConfig.js's own comment. Ballparked from OpenAI's
-// historical TTS pricing (roughly $15 per million characters for the
-// older tts-1 model) as a starting point, not a confirmed current
-// rate — check OpenAI's actual pricing page for gpt-4o-mini-tts before
-// treating this as anything more than "better than zero visibility."
-const TTS_COST_USD_PER_MILLION_CHARS = 15;
+// Sourced from ElevenLabs' own current API pricing (checked via
+// search: ~$0.10 per 1,000 characters for the Multilingual v2 model
+// this app actually uses, i.e. $100 per million) — a real, current
+// figure at the time this was written, not the rough OpenAI-based
+// placeholder this replaced. Still worth a periodic check against
+// ElevenLabs' live pricing page, same as every other cost estimate in
+// this file — providers change rates.
+const TTS_COST_USD_PER_MILLION_CHARS = 100;
 
 export function estimateNarrationCostKobo(characterCount: number): number {
   const costUsd = (characterCount / 1_000_000) * TTS_COST_USD_PER_MILLION_CHARS;

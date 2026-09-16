@@ -58,7 +58,7 @@ export async function narratePage(params: {
       bookId: params.bookId,
       pageId: params.pageId,
       operationType: "NARRATION",
-      provider: "openai",
+      provider: "elevenlabs",
       model: result.model,
       estimatedCostMinorUnits: estimateNarrationCostKobo(params.pageText.length),
       currency: "NGN",

@@ -48,7 +48,7 @@ export default function StoryStudio() {
   const [narrating, setNarrating] = useState(false);
   const [narrateDone, setNarrateDone] = useState(false);
   const [narrateError, setNarrateError] = useState("");
-  const [narrationTone, setNarrationTone] = useState("gentle");
+  const [narrationTone, setNarrationTone] = useState("warm_female");
 
   useEffect(() => {
     async function checkSession() {
@@ -353,11 +353,12 @@ export default function StoryStudio() {
               ) : (
                 <>
                   <p className="mt-3 font-body text-xs font-semibold text-charcoal/50">Narration voice</p>
-                  <div className="mt-1 grid grid-cols-3 gap-2">
+                  <div className="mt-1 grid grid-cols-2 gap-2">
                     {[
-                      { id: "gentle", label: "Warm & Gentle" },
-                      { id: "bright", label: "Bright & Energetic" },
-                      { id: "classic", label: "Classic Storyteller" },
+                      { id: "warm_female", label: "Warm & Relatable (Female)" },
+                      { id: "calm_female", label: "Calm & Soothing (Female)" },
+                      { id: "engaging_male", label: "Engaging & Clear (Male)" },
+                      { id: "natural_male", label: "Calm & Natural (Male)" },
                     ].map((t) => (
                       <button
                         key={t.id}

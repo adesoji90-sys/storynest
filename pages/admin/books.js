@@ -241,7 +241,7 @@ function emptyForm() {
     }
   }
 
-  const [narrationTone, setNarrationTone] = useState("gentle");
+  const [narrationTone, setNarrationTone] = useState("warm_female");
 
   async function narrateBook(book) {
     setNarratingBookId(book.id);
@@ -322,9 +322,10 @@ function emptyForm() {
               onChange={(e) => setNarrationTone(e.target.value)}
               className="rounded-cloth border border-charcoal/15 bg-white px-3 py-1.5 font-body text-sm"
             >
-              <option value="gentle">Warm & Gentle</option>
-              <option value="bright">Bright & Energetic</option>
-              <option value="classic">Classic Storyteller</option>
+              <option value="warm_female">Warm & Relatable (Female)</option>
+              <option value="calm_female">Calm & Soothing (Female)</option>
+              <option value="engaging_male">Engaging & Clear (Male)</option>
+              <option value="natural_male">Calm & Natural (Male)</option>
             </select>
             <span className="font-body text-xs text-charcoal/40">Used the next time you click 🔊 Narrate on any book below</span>
           </div>

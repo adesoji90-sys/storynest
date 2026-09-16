@@ -9,7 +9,7 @@ const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
 export default function Login() {
   const router = useRouter();
-  const redirectPath = typeof router.query.redirect === "string" ? router.query.redirect : "/account";
+  const redirectPath = typeof router.query.redirect === "string" ? router.query.redirect : "/family";
   const redirectUrl = (path) => (typeof window !== "undefined" ? `${window.location.origin}${path}` : undefined);
 
   // Two independent choices, both always visible — which METHOD (password
@@ -52,7 +52,7 @@ export default function Login() {
     if (!password) return setError("Enter your password.");
     resetMessages();
     setSending(true);
-    const { error: err } = await supabaseBrowser.auth.signInWithPassword({ email, password });
+    const { data, error: err } = await supabaseBrowser.auth.signInWithPassword({ email, password });
     setSending(false);
     if (err) {
       // Supabase returns the same generic message whether the password is
@@ -62,6 +62,26 @@ export default function Login() {
       // not a claim that we've detected the account is missing.
       setError(err.message || "Couldn't sign in — check your email and password.");
       return;
+    }
+    // An admin's landing page is the dashboard, not wherever a regular
+    // parent would land — checked here, right after a successful
+    // sign-in, rather than as a blanket redirect on every auth event
+    // (which would also fire on token refreshes and interfere with an
+    // admin deliberately browsing elsewhere after already logging in).
+    // A failed or slow check just falls through to the normal
+    // redirectPath — this never blocks sign-in on the admin check
+    // succeeding.
+    try {
+      const whoamiRes = await fetch("/api/admin/whoami", {
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+      const whoamiData = await whoamiRes.json();
+      if (whoamiData.isAdmin) {
+        router.push("/admin/dashboard");
+        return;
+      }
+    } catch {
+      // fall through to the normal redirect below
     }
     router.push(redirectPath);
   }
