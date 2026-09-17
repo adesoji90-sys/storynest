@@ -136,7 +136,8 @@ export default function AdminDashboard() {
                   Converted at ₦{(data.usdToNgnKoboRate / 100).toLocaleString()} per $1 — a placeholder rate, not a live one; update
                   it in lib/ai/costEstimate.ts if it drifts from reality.
                 </p>
-                <table className="mt-4 w-full font-body text-sm">
+                <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[380px] font-body text-sm">
                   <thead>
                     <tr className="border-b border-charcoal/10 text-left text-xs text-charcoal/40">
                       <th className="pb-2 font-normal">Operation</th>
@@ -159,6 +160,7 @@ export default function AdminDashboard() {
                     </tr>
                   </tbody>
                 </table>
+                </div>
               </Card>
 
               <Card className="mt-6">
@@ -167,7 +169,8 @@ export default function AdminDashboard() {
                 {data.costByBook.length === 0 ? (
                   <p className="mt-4 font-body text-sm text-charcoal/50">No AI generation costs recorded yet.</p>
                 ) : (
-                  <table className="mt-4 w-full font-body text-sm">
+                  <div className="mt-4 overflow-x-auto">
+                  <table className="w-full min-w-[420px] font-body text-sm">
                     <thead>
                       <tr className="border-b border-charcoal/10 text-left text-xs text-charcoal/40">
                         <th className="pb-2 font-normal">Book</th>
@@ -189,6 +192,7 @@ export default function AdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </Card>
 
@@ -199,12 +203,12 @@ export default function AdminDashboard() {
                     <p className="font-body text-sm text-charcoal/50">No generation jobs yet.</p>
                   ) : (
                     data.recentJobs.map((job) => (
-                      <div key={job.id} className="flex items-center justify-between border-b border-charcoal/10 pb-2">
-                        <div>
+                      <div key={job.id} className="flex items-center justify-between gap-2 border-b border-charcoal/10 pb-2">
+                        <div className="min-w-0">
                           <span className="font-body text-sm font-semibold">{job.book?.title || "Untitled"}</span>
                           <span className="ml-2 font-body text-xs text-charcoal/40">{job.jobType}</span>
                         </div>
-                        <Badge className={STATUS_COLOR[job.status] || ""}>{job.status}</Badge>
+                        <Badge className={`shrink-0 ${STATUS_COLOR[job.status] || ""}`}>{job.status}</Badge>
                       </div>
                     ))
                   )}

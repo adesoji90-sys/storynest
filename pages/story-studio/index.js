@@ -353,7 +353,7 @@ export default function StoryStudio() {
               ) : (
                 <>
                   <p className="mt-3 font-body text-xs font-semibold text-charcoal/50">Narration voice</p>
-                  <div className="mt-1 grid grid-cols-2 gap-2">
+                  <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {[
                       { id: "warm_female", label: "Warm & Relatable (Female)" },
                       { id: "calm_female", label: "Calm & Soothing (Female)" },
@@ -475,7 +475,7 @@ export default function StoryStudio() {
                 </select>
 
                 <label className="mt-4 block font-body font-semibold">Character</label>
-                <div className="mt-1 grid grid-cols-3 gap-2">
+                <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <button
                     type="button"
                     onClick={() => setCharacterMode("none")}

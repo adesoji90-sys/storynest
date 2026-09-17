@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import ThemeToggle from "@/components/ThemeToggle";
 
 // Same reasoning as AppHeader — admin's three pages (books, dashboard,
 // print-orders) had each grown their own inconsistent header
@@ -22,11 +24,24 @@ const ADMIN_NAV_ITEMS = [
 
 export default function AdminHeader() {
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const close = () => setMenuOpen(false);
+    router.events.on("routeChangeStart", close);
+    return () => router.events.off("routeChangeStart", close);
+  }, [router.events]);
+
   return (
     <header className="border-b border-charcoal/10 bg-ivory_cloth">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-5">
         <span className="font-display text-xl">StoryNest Admin</span>
-        <nav className="flex items-center gap-6">
+
+        {/* Same reasoning as AppHeader — four nav items at a comfortable
+            gap don't reliably fit a narrow phone, so this row is
+            desktop-only and replaced by the hamburger + dropdown below
+            md, rather than letting it silently overflow. */}
+        <nav className="hidden items-center gap-6 md:flex">
           {ADMIN_NAV_ITEMS.map((item) => {
             const isActive = router.pathname === item.href;
             return (
@@ -39,8 +54,40 @@ export default function AdminHeader() {
               </Link>
             );
           })}
+          <ThemeToggle />
         </nav>
+
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            className="flex flex-col gap-1.5 p-2"
+          >
+            <span className="h-0.5 w-6 bg-charcoal" />
+            <span className="h-0.5 w-6 bg-charcoal" />
+            <span className="h-0.5 w-6 bg-charcoal" />
+          </button>
+        </div>
       </div>
+
+      {menuOpen && (
+        <nav className="flex flex-col border-t border-charcoal/10 px-6 py-4 md:hidden">
+          {ADMIN_NAV_ITEMS.map((item) => {
+            const isActive = router.pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`py-2.5 font-body text-sm ${isActive ? "font-bold text-coral_ember" : "text-charcoal/60"}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
     </header>
   );
 }

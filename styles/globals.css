@@ -3,12 +3,42 @@
 @tailwind utilities;
 
 :root {
-  --indigo-night: #1d1740;
-  --marigold: #f2a93b;
-  --coral-ember: #e85c41;
-  --ivory-cloth: #fbf3e7;
-  --leaf: #3f7d5c;
-  --charcoal: #241f33;
+  /* RGB triplets (space-separated, no commas) rather than hex — this is
+     Tailwind's documented format for CSS-variable-based colors that still
+     support opacity modifiers like bg-charcoal/50, which this app uses
+     extensively. Each token keeps the same semantic role in both modes
+     (dark accent, primary CTA, secondary accent, background, success
+     green, main text, raised surface) — only the actual color per role
+     changes between :root (light) and .dark (dark) below.
+     surface is NEW: previously every card/form used a hardcoded bg-white,
+     which would stay a jarring bright box even after the rest of the page
+     went dark. Card/Button-adjacent shared components now use bg-surface
+     instead, so it can flip to a proper dark panel too. */
+  --color-indigo-night: 74 29 110;   /* #4A1D6E */
+  --color-marigold: 245 183 0;       /* #F5B700 */
+  --color-coral-ember: 230 57 70;    /* #E63946 */
+  --color-ivory-cloth: 255 248 237;  /* #FFF8ED */
+  --color-leaf: 11 110 79;           /* #0B6E4F */
+  --color-charcoal: 43 27 61;        /* #2B1B3D */
+  --color-surface: 255 255 255;      /* white */
+}
+
+.dark {
+  /* Same six roles, dark-mode values. Backgrounds and text swap places
+     (ivory_cloth goes dark, charcoal goes light) since those are the
+     "page background" and "main text" roles respectively; the accent
+     colors (indigo_night, coral_ember, marigold, leaf) stay close to
+     their light-mode values, brightened slightly where needed to stay
+     legible against a dark background rather than desaturating into
+     mud, which is the most common way a "dark mode" ends up looking
+     worse than the light one it's based on. */
+  --color-indigo-night: 93 42 133;   /* #5D2A85 — brightened slightly for contrast against an even-darker page background */
+  --color-marigold: 255 198 26;      /* #FFC61A — brightened, gold pops well on dark */
+  --color-coral-ember: 240 70 86;    /* #F04656 — brightened slightly */
+  --color-ivory-cloth: 26 16 37;     /* #1A1025 — deep near-black plum, was the light cream background */
+  --color-leaf: 18 143 101;          /* #128F65 — brightened for visibility on dark */
+  --color-charcoal: 243 233 216;     /* #F3E9D8 — light cream, was the dark main-text color */
+  --color-surface: 42 25 56;         /* #2A1938 — a raised dark panel, was white */
 }
 
 html {
@@ -16,38 +46,41 @@ html {
 }
 
 body {
-  background: var(--ivory-cloth);
-  color: var(--charcoal);
-  font-family: "Nunito Sans", system-ui, sans-serif;
+  background: rgb(var(--color-ivory-cloth));
+  color: rgb(var(--color-charcoal));
+  font-family: "Quicksand", system-ui, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 h1, h2, h3, .font-display {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "Baloo 2", system-ui, sans-serif;
   letter-spacing: -0.01em;
 }
 
 /* The one recurring motif: a diamond/lozenge trim inspired by Ankara wax-print
-   borders. Used sparingly — top of hero, and footer — never as generic
+   borders — genuinely more apt now than when this was first written, given
+   Kente Bright is itself named after a real West African textile tradition.
+   Used sparingly — top of hero, and footer — never as generic
    section dividers. */
 .cloth-trim {
   height: 14px;
   width: 100%;
   background-image: repeating-linear-gradient(
     45deg,
-    var(--marigold) 0px,
-    var(--marigold) 7px,
-    var(--coral-ember) 7px,
-    var(--coral-ember) 14px
+    rgb(var(--color-marigold)) 0px,
+    rgb(var(--color-marigold)) 7px,
+    rgb(var(--color-coral-ember)) 7px,
+    rgb(var(--color-coral-ember)) 14px
   );
 }
 
 .cloth-trim--night {
   background-image: repeating-linear-gradient(
     45deg,
-    var(--indigo-night) 0px,
-    var(--indigo-night) 7px,
-    var(--marigold) 7px,
-    var(--marigold) 14px
+    rgb(var(--color-indigo-night)) 0px,
+    rgb(var(--color-indigo-night)) 7px,
+    rgb(var(--color-marigold)) 7px,
+    rgb(var(--color-marigold)) 14px
   );
 }
 
@@ -56,7 +89,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--coral-ember);
+  outline: 3px solid rgb(var(--color-coral-ember));
   outline-offset: 2px;
 }
 

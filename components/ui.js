@@ -9,8 +9,11 @@
 
 export function Card({ children, className = "" }) {
   // The default, for ordinary content — most of what was already
-  // "bg-white p-5/6 shadow-sm rounded-cloth" everywhere.
-  return <div className={`rounded-cloth bg-white p-6 shadow-sm ${className}`}>{children}</div>;
+  // "bg-white p-5/6 shadow-sm rounded-cloth" everywhere. bg-surface
+  // (not bg-white) specifically so this flips to a proper dark panel
+  // in dark mode instead of staying a bright white box — see
+  // tailwind.config.js's own comment on why "surface" exists.
+  return <div className={`rounded-cloth bg-surface p-6 shadow-sm ${className}`}>{children}</div>;
 }
 
 export function FeatureCard({ children, className = "" }) {
@@ -31,7 +34,10 @@ export function QuietCard({ children, className = "" }) {
 }
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
-  const base = "rounded-cloth px-5 py-2.5 font-body font-bold disabled:opacity-50";
+  // rounded-full (pill) rather than rounded-cloth — Kente Bright's own
+  // preview used pill-shaped buttons throughout, a deliberately bolder,
+  // more playful shape than the previous theme's modest corner rounding.
+  const base = "rounded-full px-5 py-2.5 font-body font-bold disabled:opacity-50";
   const variants = {
     primary: "bg-coral_ember text-white",
     dark: "bg-indigo_night text-ivory_cloth",
