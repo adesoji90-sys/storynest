@@ -26,74 +26,81 @@ const HERO_IMG = "/hero.png"; // same real generated image across all three slid
 // (echoing the reader's own open-book treatment), art-left/text-right
 // on a bold color block instead, and a fully stacked, centered
 // structure with no side-by-side split at all.
+// A single consistent height across all three slides — the previous
+// version had each slide structured completely differently (a split
+// panel, a reversed split panel, a fully stacked centered card), which
+// meant the hero visibly resized as slides changed. This constant is
+// shared by all three so switching slides never shifts anything else
+// on the page.
+const HERO_HEIGHT = "h-[420px] md:h-[480px]";
+
 function SlideMind() {
+  // Full-bleed image filling the entire banner, headline overlaid
+  // directly on top with a text stroke for legibility against
+  // whatever's behind it — deliberately different from slides 2/3's
+  // split-panel structure, per the explicit brief for this one.
   return (
-    <div className="relative mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-cloth bg-surface shadow-2xl md:flex-row">
-      <div
-        className="pointer-events-none absolute inset-y-0 left-1/2 z-0 hidden w-6 -translate-x-1/2 md:block"
-        style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0.02) 20%, rgba(0,0,0,0.02) 80%, rgba(0,0,0,0.10))" }}
-      />
-      <div className="relative z-10 flex flex-1 aspect-video items-center justify-center overflow-hidden bg-indigo_night md:aspect-square">
-        {/* eslint-disable-next-line @next/next/no-img-element -- local static asset */}
-        <img src={HERO_IMG} alt="" className="h-full w-full object-cover" />
-      </div>
-      <div className="relative z-10 flex flex-1 flex-col justify-center py-10 pr-10 pl-14 md:py-14 md:pr-14 md:pl-20">
-        <h1 className="font-display text-4xl leading-tight text-charcoal md:text-5xl">Nurture your child's Mind.</h1>
-        <p className="mt-5 font-body text-lg text-charcoal/70">
-          Explore a growing library of illustrated, narrated stories, or build one from
-          scratch — starring a character you create, in a book your child can open,
-          read, and listen to on their own.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/login" className="rounded-full bg-coral_ember px-7 py-3.5 font-body font-bold text-white shadow-sm">Get started</Link>
-          <a href="#how-it-works" className="rounded-full border-2 border-charcoal/15 px-7 py-3.5 font-body font-bold text-charcoal">See how it works</a>
-        </div>
+    <div className={`relative mx-auto w-full max-w-4xl overflow-hidden rounded-cloth shadow-2xl ${HERO_HEIGHT}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- local static asset */}
+      <img src={HERO_IMG} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/15 px-6">
+        <h1
+          className="text-center font-display text-4xl leading-tight text-white md:text-6xl"
+          style={{ WebkitTextStroke: "2px rgb(43 27 61)", textShadow: "0 4px 16px rgba(0,0,0,0.35)" }}
+        >
+          Nurture your child's Mind.
+        </h1>
       </div>
     </div>
   );
 }
 
 function SlideCuriosity() {
+  // The shared template every slide's overall SIZE now matches: text
+  // on the left, illustration filling the right half, both sides at
+  // the full fixed height.
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-cloth shadow-2xl md:flex-row-reverse">
-      <div className="flex flex-1 aspect-video items-center justify-center overflow-hidden bg-leaf md:aspect-square">
-        {/* eslint-disable-next-line @next/next/no-img-element -- local static asset */}
-        <img src={HERO_IMG} alt="" className="h-full w-full object-cover opacity-95" />
-      </div>
-      <div className="flex flex-1 flex-col justify-center bg-indigo_night px-10 py-10 text-ivory_cloth md:px-16 md:py-14">
-        <div className="mb-4 flex gap-1.5">
-          <span className="h-2 w-8 rounded-full bg-coral_ember" />
-          <span className="h-2 w-8 rounded-full bg-marigold" />
-          <span className="h-2 w-8 rounded-full bg-leaf" />
-        </div>
-        <h1 className="font-display text-4xl leading-tight md:text-5xl">Fuel your child's Curiosity.</h1>
-        <p className="mt-5 font-body text-lg text-ivory_cloth/75">
+    <div className={`mx-auto flex w-full max-w-4xl overflow-hidden rounded-cloth shadow-2xl ${HERO_HEIGHT}`}>
+      <div className="flex flex-1 flex-col justify-center bg-surface px-8 py-8 md:px-14">
+        <h1 className="font-display text-3xl leading-tight text-charcoal md:text-5xl">Fuel your child's Curiosity.</h1>
+        <p className="mt-4 font-body text-base text-charcoal/70 md:mt-5 md:text-lg">
           Every story is written around what your child actually loves —
           their interests shape the theme, the questions, the world they
           get to explore.
         </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/login" className="rounded-full bg-marigold px-7 py-3.5 font-body font-bold text-indigo_night shadow-sm">Get started</Link>
-          <a href="#how-it-works" className="rounded-full border-2 border-ivory_cloth/30 px-7 py-3.5 font-body font-bold text-ivory_cloth">See how it works</a>
+        <div className="mt-6 flex flex-wrap gap-3 md:mt-8">
+          <Link href="/login" className="rounded-full bg-coral_ember px-6 py-3 font-body font-bold text-white shadow-sm md:px-7 md:py-3.5">Get started</Link>
+          <a href="#how-it-works" className="rounded-full border-2 border-charcoal/15 px-6 py-3 font-body font-bold text-charcoal md:px-7 md:py-3.5">See how it works</a>
         </div>
+      </div>
+      <div className="flex flex-1 items-center justify-center overflow-hidden bg-leaf">
+        {/* eslint-disable-next-line @next/next/no-img-element -- local static asset */}
+        <img src={HERO_IMG} alt="" className="h-full w-full object-cover" />
       </div>
     </div>
   );
 }
 
 function SlideDreams() {
+  // Same template as SlideCuriosity, mirrored — illustration on the
+  // left this time, text on the right — rather than a different
+  // structure entirely.
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col items-center rounded-cloth bg-surface p-8 text-center shadow-2xl md:p-14">
-      <span className="rounded-full bg-coral_ember/10 px-4 py-1.5 font-body text-sm font-bold text-coral_ember">✨ Bedtime, reimagined</span>
-      <h1 className="mt-5 font-display text-4xl leading-tight text-charcoal md:text-5xl">Inspire your child's Dreams.</h1>
-      <p className="mt-5 max-w-lg font-body text-lg text-charcoal/70">
-        A story that ends with them in it — illustrated, narrated, and
-        theirs alone. The last thing they see before they close their eyes.
-      </p>
-      <Link href="/login" className="mt-7 rounded-full bg-coral_ember px-8 py-3.5 font-body font-bold text-white shadow-sm">Get started</Link>
-      <div className="mt-8 w-full overflow-hidden rounded-cloth shadow-lg">
+    <div className={`mx-auto flex w-full max-w-4xl overflow-hidden rounded-cloth shadow-2xl ${HERO_HEIGHT}`}>
+      <div className="flex flex-1 items-center justify-center overflow-hidden bg-indigo_night">
         {/* eslint-disable-next-line @next/next/no-img-element -- local static asset */}
-        <img src={HERO_IMG} alt="" className="w-full object-cover" style={{ maxHeight: "280px" }} />
+        <img src={HERO_IMG} alt="" className="h-full w-full object-cover" />
+      </div>
+      <div className="flex flex-1 flex-col justify-center bg-surface px-8 py-8 md:px-14">
+        <h1 className="font-display text-3xl leading-tight text-charcoal md:text-5xl">Inspire your child's Dreams.</h1>
+        <p className="mt-4 font-body text-base text-charcoal/70 md:mt-5 md:text-lg">
+          A story that ends with them in it — illustrated, narrated, and
+          theirs alone. The last thing they see before they close their eyes.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3 md:mt-8">
+          <Link href="/login" className="rounded-full bg-coral_ember px-6 py-3 font-body font-bold text-white shadow-sm md:px-7 md:py-3.5">Get started</Link>
+          <a href="#how-it-works" className="rounded-full border-2 border-charcoal/15 px-6 py-3 font-body font-bold text-charcoal md:px-7 md:py-3.5">See how it works</a>
+        </div>
       </div>
     </div>
   );
