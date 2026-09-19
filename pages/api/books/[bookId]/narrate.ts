@@ -18,6 +18,7 @@ import { NARRATION_TONES, DEFAULT_NARRATION_TONE } from "@/lib/ai/NarrationProvi
 
 const NarrateSchema = z.object({
   tone: z.enum(Object.keys(NARRATION_TONES) as [string, ...string[]]).optional(),
+  speed: z.number().min(0.7).max(1.2).optional(),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -92,6 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           pageId: page.id,
           pageText: page.text,
           voiceId,
+          speed: parsed.data.speed,
           familyId: auth.familyId,
           userId: auth.userId,
           bookId: book.id,
@@ -101,6 +103,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error(`Narration failed for page ${page.id}:`, pageErr);
         results.push({ pageId: page.id, ok: false, error: (pageErr as Error).message });
       }
+      // Written after EVERY page, success or failure — this is what
+      // makes real, live progress possible at all. The main request
+      // below still blocks until the whole loop finishes (Vercel
+      // functions can't run work in the background after responding),
+      // but this same GenerationJob row is readable by a SEPARATE,
+      // concurrent request the whole time this one is still running —
+      // that's what /api/generation-jobs/[id] polls, and it's how the
+      // progress modal shows real advancement instead of a static
+      // spinner someone could easily mistake for the feature being
+      // broken.
+      await prisma.generationJob.update({
+        where: { id: job.id },
+        data: { resultJson: { completed: results.length, total: book.pages.length, results } },
+      });
     }
 
     const failedCount = results.filter((r) => !r.ok).length;

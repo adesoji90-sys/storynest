@@ -242,6 +242,28 @@ function emptyForm() {
   }
 
   const [narrationTone, setNarrationTone] = useState("warm_female");
+  const [narrationSpeed, setNarrationSpeed] = useState(1.0);
+  const [previewingVoice, setPreviewingVoice] = useState(false);
+
+  async function testVoice() {
+    setPreviewingVoice(true);
+    setError("");
+    try {
+      const res = await fetch("/api/narration-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ tone: narrationTone, speed: narrationSpeed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't generate a preview.");
+      const audio = new Audio(`data:${data.mimeType};base64,${data.base64}`);
+      audio.play();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPreviewingVoice(false);
+    }
+  }
 
   async function narrateBook(book) {
     setNarratingBookId(book.id);
@@ -250,7 +272,7 @@ function emptyForm() {
       const res = await fetch(`/api/admin/books/${book.id}/narrate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ tone: narrationTone }),
+        body: JSON.stringify({ tone: narrationTone, speed: narrationSpeed }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't narrate the book.");
@@ -315,18 +337,38 @@ function emptyForm() {
 
           {error && <p className="mt-4 font-body text-sm text-coral_ember">{error}</p>}
 
-          <div className="mt-4 flex items-center gap-3 rounded-cloth bg-white p-3 shadow-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-cloth bg-surface p-3 shadow-sm">
             <label className="font-body text-sm font-semibold text-charcoal/60">Narration voice:</label>
             <select
               value={narrationTone}
               onChange={(e) => setNarrationTone(e.target.value)}
-              className="rounded-cloth border border-charcoal/15 bg-white px-3 py-1.5 font-body text-sm"
+              className="rounded-cloth border border-charcoal/15 bg-surface px-3 py-1.5 font-body text-sm"
             >
               <option value="warm_female">Warm & Relatable (Female)</option>
               <option value="calm_female">Calm & Soothing (Female)</option>
               <option value="engaging_male">Engaging & Clear (Male)</option>
               <option value="natural_male">Calm & Natural (Male)</option>
             </select>
+            <label className="flex items-center gap-2 font-body text-sm font-semibold text-charcoal/60">
+              Speed
+              <input
+                type="range"
+                min="0.7"
+                max="1.2"
+                step="0.05"
+                value={narrationSpeed}
+                onChange={(e) => setNarrationSpeed(Number(e.target.value))}
+              />
+              <span className="text-xs text-charcoal/40">{narrationSpeed.toFixed(2)}x</span>
+            </label>
+            <button
+              type="button"
+              onClick={testVoice}
+              disabled={previewingVoice}
+              className="rounded-cloth border border-charcoal/15 px-3 py-1.5 font-body text-sm font-semibold disabled:opacity-50"
+            >
+              {previewingVoice ? "Loading…" : "▶️ Test"}
+            </button>
             <span className="font-body text-xs text-charcoal/40">Used the next time you click 🔊 Narrate on any book below</span>
           </div>
 

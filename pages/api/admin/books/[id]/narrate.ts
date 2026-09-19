@@ -17,6 +17,7 @@ import { NARRATION_TONES, DEFAULT_NARRATION_TONE } from "@/lib/ai/NarrationProvi
 
 const NarrateSchema = z.object({
   tone: z.enum(Object.keys(NARRATION_TONES) as [string, ...string[]]).optional(),
+  speed: z.number().min(0.7).max(1.2).optional(),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -75,6 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           pageId: page.id,
           pageText: page.text,
           voiceId,
+          speed: parsed.data.speed,
           familyId: null,
           userId: auth.userId,
           bookId: book.id,

@@ -22,12 +22,13 @@ export async function narratePage(params: {
   pageId: string;
   pageText: string;
   voiceId?: string;
+  speed?: number;
   familyId: string | null;
   userId: string;
   bookId: string;
 }) {
   const provider = getNarrationProvider();
-  const result = await provider.generateNarration({ text: params.pageText, voiceId: params.voiceId });
+  const result = await provider.generateNarration({ text: params.pageText, voiceId: params.voiceId, speed: params.speed });
 
   const storageKey = `${params.bookId}_page_${params.pageId}.mp3`;
   const { error: uploadError } = await supabaseAdmin.storage

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabaseBrowser } from "@/lib/supabaseBrowserClient";
 import AppHeader from "@/components/AppHeader";
+import GenerationProgressModal from "@/components/GenerationProgressModal";
 
 export default function StoryStudio() {
   const router = useRouter();
@@ -45,10 +46,15 @@ export default function StoryStudio() {
   const [illustrating, setIllustrating] = useState(false);
   const [illustrateDone, setIllustrateDone] = useState(false);
   const [illustrateError, setIllustrateError] = useState("");
+  const [illustrateProgress, setIllustrateProgress] = useState(null);
   const [narrating, setNarrating] = useState(false);
   const [narrateDone, setNarrateDone] = useState(false);
   const [narrateError, setNarrateError] = useState("");
+  const [narrateProgress, setNarrateProgress] = useState(null);
   const [narrationTone, setNarrationTone] = useState("warm_female");
+  const [narrationSpeed, setNarrationSpeed] = useState(1.0);
+  const [previewingVoice, setPreviewingVoice] = useState(false);
+  const [previewError, setPreviewError] = useState("");
 
   useEffect(() => {
     async function checkSession() {
@@ -252,9 +258,32 @@ export default function StoryStudio() {
     }
   }
 
+  // Shared by both illustrate and narrate — polls "the latest job for
+  // this book" (see that endpoint's own comment for why not a specific
+  // job id) every 2 seconds while the operation is running, updating
+  // whichever progress setter is passed in. Returns a cleanup function
+  // so the interval always gets cleared, success or failure.
+  function startProgressPolling(jobType, setProgress) {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/books/${publishedBookId}/generation-status?jobType=${jobType}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = await res.json();
+        if (data.progress) setProgress(data.progress);
+      } catch {
+        // A single missed poll isn't worth surfacing — the next one two
+        // seconds later will just pick up wherever things actually are.
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }
+
   async function handleIllustrate() {
     setIllustrateError("");
     setIllustrating(true);
+    setIllustrateProgress(null);
+    const stopPolling = startProgressPolling("IMAGE_GENERATION", setIllustrateProgress);
     try {
       const res = await fetch(`/api/books/${publishedBookId}/illustrate`, {
         method: "POST",
@@ -266,6 +295,7 @@ export default function StoryStudio() {
     } catch (err) {
       setIllustrateError(err.message);
     } finally {
+      stopPolling();
       setIllustrating(false);
     }
   }
@@ -273,11 +303,13 @@ export default function StoryStudio() {
   async function handleNarrate() {
     setNarrateError("");
     setNarrating(true);
+    setNarrateProgress(null);
+    const stopPolling = startProgressPolling("NARRATION", setNarrateProgress);
     try {
       const res = await fetch(`/api/books/${publishedBookId}/narrate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ tone: narrationTone }),
+        body: JSON.stringify({ tone: narrationTone, speed: narrationSpeed }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't narrate the book.");
@@ -285,7 +317,28 @@ export default function StoryStudio() {
     } catch (err) {
       setNarrateError(err.message);
     } finally {
+      stopPolling();
       setNarrating(false);
+    }
+  }
+
+  async function handleTestVoice() {
+    setPreviewError("");
+    setPreviewingVoice(true);
+    try {
+      const res = await fetch("/api/narration-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ tone: narrationTone, speed: narrationSpeed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't generate a preview.");
+      const audio = new Audio(`data:${data.mimeType};base64,${data.base64}`);
+      audio.play();
+    } catch (err) {
+      setPreviewError(err.message);
+    } finally {
+      setPreviewingVoice(false);
     }
   }
 
@@ -370,6 +423,33 @@ export default function StoryStudio() {
                       </button>
                     ))}
                   </div>
+
+                  <div className="mt-3">
+                    <label className="flex items-center justify-between font-body text-xs font-semibold text-charcoal/50">
+                      <span>Speed</span>
+                      <span>{narrationSpeed.toFixed(2)}x</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.7"
+                      max="1.2"
+                      step="0.05"
+                      value={narrationSpeed}
+                      onChange={(e) => setNarrationSpeed(Number(e.target.value))}
+                      className="mt-1 w-full"
+                    />
+                  </div>
+
+                  {previewError && <p className="mt-2 font-body text-sm text-coral_ember">{previewError}</p>}
+                  <button
+                    type="button"
+                    onClick={handleTestVoice}
+                    disabled={previewingVoice}
+                    className="mt-2 w-full rounded-cloth border border-charcoal/15 px-5 py-2 font-body text-sm font-semibold disabled:opacity-50"
+                  >
+                    {previewingVoice ? "Loading preview…" : "▶️ Test this voice"}
+                  </button>
+
                   <button
                     onClick={handleNarrate}
                     disabled={narrating}
@@ -659,6 +739,8 @@ export default function StoryStudio() {
           )}
         </div>
       </main>
+      <GenerationProgressModal open={illustrating} label="Illustrating your book" progress={illustrateProgress} />
+      <GenerationProgressModal open={narrating} label="Narrating your book" progress={narrateProgress} />
     </>
   );
 }

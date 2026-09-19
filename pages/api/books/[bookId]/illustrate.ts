@@ -135,6 +135,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error(`Illustration failed for page ${page.id}:`, pageErr);
         results.push({ pageId: page.id, ok: false, error: (pageErr as Error).message });
       }
+      // Same reasoning as narrate.ts's matching write — this is what a
+      // separate, concurrent poll to /api/books/[bookId]/generation-status
+      // actually reads while this request is still running.
+      await prisma.generationJob.update({
+        where: { id: job.id },
+        data: { resultJson: { completed: results.length, total: book.pages.length, results } },
+      });
     }
 
     // Cover generated LAST, after every page — not just anchored to the

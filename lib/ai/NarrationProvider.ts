@@ -56,6 +56,10 @@ import type { NarrationProvider, NarrationRequest, NarrationResult } from "./typ
 export class ElevenLabsTTSProvider implements NarrationProvider {
   async generateNarration(request: NarrationRequest): Promise<NarrationResult> {
     const voiceId = request.voiceId || NARRATION_TONES[DEFAULT_NARRATION_TONE]!.voiceId;
+    // ElevenLabs' own documented range is 0.7 (slowest) to 1.2
+    // (fastest) — values outside that are rejected outright, so this
+    // clamps rather than trusting whatever a client sends.
+    const speed = request.speed ? Math.min(1.2, Math.max(0.7, request.speed)) : 1.0;
 
     const apiRes = await fetchOpenAIWithRetry(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: "POST",
@@ -66,6 +70,7 @@ export class ElevenLabsTTSProvider implements NarrationProvider {
       body: JSON.stringify({
         text: request.text,
         model_id: ELEVEN_MODEL,
+        voice_settings: { speed },
       }),
     });
 

@@ -220,8 +220,8 @@ export default function Reader() {
             <span className="absolute bottom-3 left-4 font-body text-xs text-charcoal/30">{pageIndex + 1}</span>
           </div>
 
-          <div className="relative flex flex-1 flex-col justify-center p-6 text-center md:p-10 md:text-left">
-            <p className="whitespace-pre-line font-body text-xl leading-relaxed">{page.text}</p>
+          <div className="relative flex flex-1 flex-col justify-center py-6 pr-6 pl-10 text-center md:py-10 md:pr-10 md:pl-16 md:text-left">
+            <p className="whitespace-pre-line text-center font-body text-xl leading-relaxed md:text-justify">{page.text}</p>
 
             {page.narrationUrl && (
               <div className="mt-6">

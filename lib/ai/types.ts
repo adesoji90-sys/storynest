@@ -66,6 +66,7 @@ export interface ImageProvider {
 export interface NarrationRequest {
   text: string;
   voiceId?: string;
+  speed?: number; // provider-specific range — ElevenLabsTTSProvider clamps to its own documented 0.7–1.2
   language?: string;
 }
 
