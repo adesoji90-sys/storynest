@@ -323,6 +323,7 @@ export async function illustratePage(params: {
   pageId: string;
   pageText: string;
   characterBible: { id: string; name: string; age: number | null; appearance: string | null; visualStyle: string };
+  supportingCharacters?: { id: string; name: string; age: number | null; gender?: string | null; appearance: string | null; visualStyle: string }[];
   familyId: string | null;
   userId: string;
   bookId: string;
@@ -331,10 +332,49 @@ export async function illustratePage(params: {
   const referenceBase64 = await getOrGenerateCharacterReferenceBase64(params.characterBible, params.familyId, poseId);
   const style = getStyle(params.characterBible.visualStyle);
 
+  // Multiple reference images now, not just the one main character —
+  // the actual fix for supporting characters drifting in appearance
+  // across pages (a real, reported case: friends/family members drawn
+  // differently every time they appeared, even though the lead
+  // character stayed consistent). Each supporting character gets their
+  // OWN tracked reference the same way the main one does; the
+  // difference is which pose is used. A pose per supporting character
+  // per page would need per-character pose selection, which is real
+  // added complexity for uncertain benefit — their neutral reference
+  // still lets the model position them naturally within whatever the
+  // page's text prompt describes, it just isn't independently posed
+  // the way the lead character is.
+  //
+  // Filtered to only characters actually named in THIS page's text —
+  // a simple case-insensitive name check, not a full NLP pass. This
+  // keeps prompts focused (an unrelated character's reference sitting
+  // in the input would only add noise, not help) and keeps this fast
+  // and cheap rather than doing per-page relevance scoring.
+  const references: { label: string; base64: string }[] = [
+    { label: `a reference image of ${params.characterBible.name}`, base64: referenceBase64 },
+  ];
+  const mentionedSupporting = (params.supportingCharacters || []).filter((c) =>
+    params.pageText.toLowerCase().includes(c.name.toLowerCase())
+  );
+  for (const supporting of mentionedSupporting) {
+    try {
+      const supportingRefBase64 = await getOrGenerateCharacterReferenceBase64(supporting, params.familyId, "neutral");
+      references.push({ label: `a reference image of ${supporting.name}`, base64: supportingRefBase64 });
+    } catch (refErr) {
+      // A failed supporting-character reference shouldn't block the
+      // whole page — it just means that one character isn't anchored
+      // to a consistent look on this particular page, same drift risk
+      // as before this feature existed, not a new failure mode.
+      console.error(`Couldn't generate a reference for supporting character ${supporting.name}:`, refErr);
+    }
+  }
+
   const provider = getImageProvider();
   const result = await provider.generateImage({
-    prompt: `${params.pageText}\n\nIllustrate this scene as a ${style.guide}.`,
-    references: [{ label: `a reference image of ${params.characterBible.name}`, base64: referenceBase64 }],
+    prompt: `${params.pageText}\n\nIllustrate this scene as a ${style.guide}.${
+      mentionedSupporting.length ? ` Match each named character shown in the reference images to their appearance exactly — do not swap, blend, or redesign them.` : ""
+    }`,
+    references,
     width: 1024,
     height: 1024,
   });

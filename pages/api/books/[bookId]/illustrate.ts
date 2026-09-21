@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
 
   try {
-    // Checks for an explicitly-linked character FIRST (set at
+    // Checks for an explicitly-linked MAIN character first (set at
     // story-creation time if the parent picked one in Story Studio),
     // matching the same lookup order admin/curated illustration already
     // uses via getOrCreateGenericBookCharacterBible. Only falls back to
@@ -80,7 +80,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // — either an older book created before this change, or a parent
     // who didn't bother picking one, which is still a fully supported
     // path, not a removed feature.
-    const linkedCharacter = book.characters[0]?.character;
+    const linkedCharacter = book.characters.find((bc: any) => bc.role === "main")?.character;
+    // Supporting characters — created during story approval from
+    // whatever generate.ts identified in the story text (see
+    // approve.ts's own comment). Filtered to real appearance data since
+    // an empty/malformed entry shouldn't get passed into the image
+    // generation call at all.
+    const supportingCharacters = book.characters
+      .filter((bc: any) => bc.role === "supporting" && bc.character?.appearance)
+      .map((bc: any) => bc.character);
     const characterBible = linkedCharacter
       ? linkedCharacter
       : await (async () => {
@@ -126,6 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           pageId: page.id,
           pageText: page.text,
           characterBible,
+          supportingCharacters,
           familyId: auth.familyId,
           userId: auth.userId,
           bookId: book.id,

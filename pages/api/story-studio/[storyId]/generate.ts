@@ -50,8 +50,22 @@ this shape:
     "A simple comprehension question about the story, appropriate for the child's age/reading level",
     "A second, different comprehension question",
     "A third, different comprehension question"
+  ],
+  "supportingCharacters": [
+    { "name": "string", "gender": "girl" | "boy" | "unspecified", "appearance": "a specific, concrete physical description — hair, clothing, any distinguishing feature" }
   ]
 }
+
+"supportingCharacters" lists every OTHER named character who appears on
+more than one page (a friend, a sibling, a parent, a talking animal, a
+recurring creature) — NOT ${child.name} (the main character has a
+separate, existing character system) and NOT someone mentioned once in
+passing with no real presence in the story. An empty array is correct
+and expected for a story with no real supporting characters. Each
+"appearance" must be specific enough to draw consistently — not "a
+friendly dog" but "a small brown dog with one white ear and a red
+collar" — since this exact text is what keeps that character looking
+the same across every page they appear on.
 
 "questions" must contain EXACTLY three items — these are shown to the
 child (or read aloud to them) on their own page after the story ends,
@@ -75,7 +89,14 @@ stay exactly the same everywhere else it comes up in the story. Do not
 introduce a new, contradictory version of something already described
 (e.g. a dress described as blue on one page must not become yellow on
 a later page). If a detail doesn't need restating, leave it out rather
-than risk describing it differently.`;
+than risk describing it differently. This applies to every supporting
+character too, not just ${child.name} — once you give a character an
+outfit or appearance, keep it consistent for them specifically,
+everywhere they reappear. The one legitimate exception: if the story
+clearly moves to a new day (e.g. "the next morning", "the following
+day"), a change of clothes at that point is normal and expected, not an
+inconsistency — just make the day change clear in the text itself when
+that happens, rather than silently changing an outfit mid-scene.`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -182,7 +203,7 @@ Write the full story now as JSON, following the system instructions exactly.
       },
     });
 
-    let generated: { title?: string; pages?: { text: string }[]; questions?: string[] };
+    let generated: { title?: string; pages?: { text: string }[]; questions?: string[]; supportingCharacters?: { name: string; gender?: string; appearance: string }[] };
     try {
       generated = JSON.parse(result.rawText);
     } catch {
@@ -197,6 +218,13 @@ Write the full story now as JSON, following the system instructions exactly.
     // away an otherwise-good story; the parent can still write their
     // own in the review step.
     const questions = Array.isArray(generated.questions) && generated.questions.length === 3 ? generated.questions : [];
+    // Same leniency for supportingCharacters — an empty/missing array
+    // just means no illustration-time consistency references get built
+    // for this story beyond the existing main-character system, not a
+    // reason to fail the whole generation.
+    const supportingCharacters = Array.isArray(generated.supportingCharacters)
+      ? generated.supportingCharacters.filter((c) => c && typeof c.name === "string" && typeof c.appearance === "string")
+      : [];
 
     const latestVersion = await prisma.storyVersion.findFirst({
       where: { storyId },
@@ -211,14 +239,14 @@ Write the full story now as JSON, following the system instructions exactly.
           storyId,
           versionNumber: nextVersionNumber,
           title: generated.title as string,
-          pagesJson: { pages: generated.pages, questions } as any,
+          pagesJson: { pages: generated.pages, questions, supportingCharacters } as any,
         },
       });
       await tx.story.update({ where: { id: storyId }, data: { status: "STORY_GENERATED" } });
       return created;
     });
 
-    return res.status(200).json({ versionNumber: version.versionNumber, title: version.title, pages: generated.pages, questions });
+    return res.status(200).json({ versionNumber: version.versionNumber, title: version.title, pages: generated.pages, questions, supportingCharacters });
   } catch (err) {
     console.error("story-studio generate error:", err);
     return res.status(500).json({ error: "Unexpected server error." });

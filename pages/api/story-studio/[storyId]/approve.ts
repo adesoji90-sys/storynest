@@ -68,6 +68,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(entitlementCheck.status).json({ error: entitlementCheck.error });
   }
 
+  // Read from the latest AI-generated version specifically, before this
+  // request creates its own new version below — supportingCharacters is
+  // something generate.ts identified from the story it wrote, and isn't
+  // part of what this endpoint's own request body carries (the parent
+  // edits page text here, not the character list). A parent's minor
+  // text edits at this step won't usually add or remove entire
+  // characters, so this is a reasonable source even though the
+  // approved text and the generated text may differ slightly.
+  const latestGenerated = await prisma.storyVersion.findFirst({
+    where: { storyId },
+    orderBy: { versionNumber: "desc" },
+    select: { pagesJson: true },
+  });
+  const supportingCharacters: { name: string; gender?: string; appearance: string }[] =
+    Array.isArray((latestGenerated?.pagesJson as any)?.supportingCharacters)
+      ? (latestGenerated!.pagesJson as any).supportingCharacters
+      : [];
+
   try {
     const bookId = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const latestVersion = await tx.storyVersion.findFirst({
@@ -96,6 +114,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await tx.book.update({ where: { id: story.bookId }, data: { title, authorName, status: "PUBLISHED" } });
       await tx.story.update({ where: { id: storyId }, data: { status: "STORY_APPROVED" } });
+
+      // One CharacterBible + BookCharacter link per supporting character,
+      // same mechanism the main character already uses — this is the
+      // actual fix for cross-page drift on characters other than the
+      // lead: illustratePage can now find and reuse a real, consistent
+      // reference for each of them instead of drawing them fresh (and
+      // differently) on every page they appear on.
+      for (const supporting of supportingCharacters) {
+        const character = await tx.characterBible.create({
+          data: {
+            childId: null,
+            familyId: auth.familyId,
+            name: supporting.name,
+            gender: supporting.gender || null,
+            appearance: supporting.appearance,
+            visualStyle: "painterly",
+          },
+        });
+        await tx.bookCharacter.create({ data: { bookId: story.bookId, characterId: character.id, role: "supporting" } });
+      }
 
       await tx.bookAssignment.upsert({
         where: { bookId_childId: { bookId: story.bookId, childId: story.childId as string } },
