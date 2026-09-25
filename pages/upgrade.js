@@ -5,7 +5,7 @@ import { Card } from "@/components/ui";
 
 // Deliberately NOT a real checkout flow yet — Step 11 built the
 // Plan/Entitlement data model and enforcement (max_children etc.), but
-// never connected it to actual payment. StoryNest's existing Paystack
+// never connected it to actual payment. Derek's existing Paystack
 // integration works, but it writes to a completely different, older set
 // of database columns unrelated to this new Plan/Subscription/
 // Entitlement schema. This page is honest about that gap rather than
@@ -18,7 +18,7 @@ export default function Upgrade() {
   return (
     <>
       <Head>
-        <title>Upgrade — StoryNest</title>
+        <title>Upgrade — Derek</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <AppHeader />

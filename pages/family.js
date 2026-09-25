@@ -276,7 +276,7 @@ export default function Family() {
   return (
     <>
       <Head>
-        <title>Your family — StoryNest</title>
+        <title>Your family — Derek</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <AppHeader />

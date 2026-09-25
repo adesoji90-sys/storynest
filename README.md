@@ -1,4 +1,4 @@
-# StoryNest
+# Derek
 
 Personalized bedtime storybooks starring African and Western characters, built by Nigerian parents from guided templates. Next.js + Supabase + Paystack + Claude API.
 
@@ -200,7 +200,7 @@ Order confirmations are sent via [Resend](https://resend.com), with the actual P
 
 **Setup:**
 1. Create a Resend account and get an API key from **API Keys**.
-2. Verify a sending domain under **Domains** (Resend rejects sends from unverified domains) and set `RESEND_FROM_EMAIL` to an address on that domain, e.g. `StoryNest <hello@yourdomain.com>`. For local testing before you've verified a domain, Resend's own `onboarding@resend.dev` sender works without verification but is rate-limited and not meant for production.
+2. Verify a sending domain under **Domains** (Resend rejects sends from unverified domains) and set `RESEND_FROM_EMAIL` to an address on that domain, e.g. `Derek <hello@yourdomain.com>`. For local testing before you've verified a domain, Resend's own `onboarding@resend.dev` sender works without verification but is rate-limited and not meant for production.
 3. Set `RESEND_API_KEY`. If it's unset, `lib/email.js` logs a warning and skips sending instead of failing the request — so local dev without email keys still works end to end, it just won't actually send.
 
 **Where it's wired in:** both `/api/verify-payment` (one-off purchases) and `/api/redeem-subscription-story` (subscription redemptions) build the PDF server-side via `lib/generateStoryPdf.js` — the same layout `success.js`'s "Download PDF" button produces, refactored into one shared function so the two can't drift apart — and attach it to the confirmation email.

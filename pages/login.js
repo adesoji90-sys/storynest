@@ -142,7 +142,7 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Log in — StoryNest</title>
+        <title>Log in — Derek</title>
       </Head>
       <main className="flex min-h-screen bg-ivory_cloth text-charcoal">
         <div className="hidden flex-1 items-center justify-center bg-indigo_night md:flex">
@@ -155,7 +155,7 @@ export default function Login() {
         </div>
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-          <Link href="/" className="mb-8 font-display text-2xl">StoryNest</Link>
+          <Link href="/" className="mb-8 font-display text-2xl">Derek</Link>
           <div className="w-full max-w-sm rounded-cloth bg-white p-8 shadow-lg">
           {sent ? (
             <>

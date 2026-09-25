@@ -52,7 +52,7 @@ const GenerateSchema = z.object({
 
 function buildSystemPrompt(targetPages: number) {
   const wordTarget = targetPages * 80;
-  return `You are a children's story writer AND cataloguer for StoryNest's
+  return `You are a children's story writer AND cataloguer for Derek's
 curated library — books read by many different families' children, not
 personalized to any one child. Write a warm, age-appropriate story of
 roughly ${wordTarget} words, split into approximately ${targetPages} pages,

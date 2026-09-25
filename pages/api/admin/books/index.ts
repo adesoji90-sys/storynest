@@ -102,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pagesWithClosing = [
       ...pages,
       {
-        text: "The End 🎉\n\nLoved this story? There are more books waiting for you in the StoryNest library!",
+        text: "The End 🎉\n\nLoved this story? There are more books waiting for you in the Derek library!",
       },
     ];
 

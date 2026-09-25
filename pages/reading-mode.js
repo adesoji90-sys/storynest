@@ -83,7 +83,7 @@ export default function ReadingMode() {
   return (
     <>
       <Head>
-        <title>{child ? `${child.name}'s books` : "Reading"} — StoryNest</title>
+        <title>{child ? `${child.name}'s books` : "Reading"} — Derek</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth px-6 py-10 text-charcoal">
         <div className="mx-auto max-w-3xl">

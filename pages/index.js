@@ -6,7 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 // The old landing page described a completely different product — 30
 // fixed hardcoded characters, per-book Naira pricing, photo-upload
 // premium tiers. None of that exists anymore. This is a full rewrite
-// grounded in what StoryNest actually does today: a curated library of
+// grounded in what Derek actually does today: a curated library of
 // illustrated, narrated African-first storybooks (every plan), plus
 // AI-personalized stories a parent builds with their own chosen or
 // custom character (Family plan), read through a PIN-locked Reading
@@ -155,7 +155,7 @@ function CreateCard() {
     <div className="rounded-cloth bg-charcoal p-8 text-ivory_cloth shadow-sm">
       <p className="font-display text-2xl">Create your own</p>
       <p className="mt-3 font-body text-ivory_cloth/80">
-        Describe a story, and StoryNest writes it — starring your child, or a character
+        Describe a story, and Derek writes it — starring your child, or a character
         you design yourself: their look, their personality, reused across every future
         story. Then we illustrate it, narrate it, and give it a real cover.
       </p>
@@ -173,7 +173,7 @@ const steps = [
   {
     n: 2,
     title: "Tell us what the story's about",
-    body: "A theme, a lesson, a setting — as much or as little as you want to describe. StoryNest writes the rest.",
+    body: "A theme, a lesson, a setting — as much or as little as you want to describe. Derek writes the rest.",
   },
   {
     n: 3,
@@ -191,12 +191,12 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>StoryNest — A storybook that stars your child</title>
+        <title>Derek — Stories that shape who they become.</title>
         <meta
           name="description"
           content="Explore a library of illustrated, narrated African-first storybooks, or create your own personalized story with a character your family designs. Safe for your child to read on their own."
         />
-        <meta property="og:title" content="StoryNest" />
+        <meta property="og:title" content="Derek" />
         <meta
           property="og:description"
           content="A storybook that stars your child — illustrated, narrated, and safe for them to open on their own."
@@ -205,7 +205,10 @@ export default function Home() {
 
       <main className="bg-ivory_cloth text-charcoal">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-          <span className="font-display text-xl">StoryNest</span>
+          <div className="text-left">
+            <span className="font-display text-xl text-indigo_night">Derek</span>
+            <p className="font-body text-xs text-leaf">Stories that shape who they become.</p>
+          </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <Link href="/login" className="font-body font-semibold text-charcoal/70">
@@ -274,7 +277,7 @@ export default function Home() {
         </section>
 
         <footer className="px-6 py-10 text-center font-body text-sm text-charcoal/40">
-          StoryNest
+          Derek
         </footer>
       </main>
     </>

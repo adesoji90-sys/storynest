@@ -35,7 +35,7 @@ export default function AdminHeader() {
   return (
     <header className="border-b border-charcoal/10 bg-ivory_cloth">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-5">
-        <span className="font-display text-xl">StoryNest Admin</span>
+        <span className="font-display text-xl">Derek Admin</span>
 
         {/* Same reasoning as AppHeader — four nav items at a comfortable
             gap don't reliably fit a narrow phone, so this row is

@@ -48,7 +48,7 @@ export default function PrintOrderStatus() {
 
   return (
     <>
-      <Head><title>Print order — StoryNest</title></Head>
+      <Head><title>Print order — Derek</title></Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <AppHeader />
         <div className="mx-auto max-w-lg px-6 py-16 text-center">

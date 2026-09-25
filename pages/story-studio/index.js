@@ -239,7 +239,7 @@ export default function StoryStudio() {
         });
       }
       finalPages.push({
-        text: "The End 🎉\n\nWant more stories like this one? There's a whole world of adventures waiting in your StoryNest library!",
+        text: "The End 🎉\n\nWant more stories like this one? There's a whole world of adventures waiting in your Derek library!",
       });
 
       const res = await fetch(`/api/story-studio/${storyId}/approve`, {
@@ -347,7 +347,7 @@ export default function StoryStudio() {
   return (
     <>
       <Head>
-        <title>Story Studio — StoryNest</title>
+        <title>Story Studio — Derek</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <AppHeader />

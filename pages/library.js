@@ -152,7 +152,7 @@ export default function Library() {
   return (
     <>
       <Head>
-        <title>Library — StoryNest</title>
+        <title>Library — Derek</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <AppHeader />

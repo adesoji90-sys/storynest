@@ -63,7 +63,7 @@ export default function AppHeader() {
     <header className="border-b border-charcoal/10 bg-ivory_cloth">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <Link href="/family" className="font-display text-xl">
-          StoryNest
+          Derek
         </Link>
 
         {/* Desktop nav — up to 6 items (Family/Library/Story Studio/

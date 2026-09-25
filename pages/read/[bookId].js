@@ -130,7 +130,7 @@ export default function Reader() {
     return (
       <>
         <Head>
-          <title>{book.title} — StoryNest</title>
+          <title>{book.title} — Derek</title>
         </Head>
         <main className="flex min-h-screen flex-col items-center justify-center bg-charcoal px-6 py-10">
           <div className="relative aspect-[2/3] w-full max-w-sm overflow-hidden rounded-cloth shadow-2xl">
@@ -172,7 +172,7 @@ export default function Reader() {
   return (
     <>
       <Head>
-        <title>{book.title} — StoryNest</title>
+        <title>{book.title} — Derek</title>
       </Head>
       <main className="flex min-h-screen flex-col bg-ivory_cloth text-charcoal">
         <header className="flex items-center justify-between px-6 py-4">
