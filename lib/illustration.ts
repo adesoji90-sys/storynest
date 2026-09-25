@@ -356,18 +356,29 @@ export async function illustratePage(params: {
   const mentionedSupporting = (params.supportingCharacters || []).filter((c) =>
     params.pageText.toLowerCase().includes(c.name.toLowerCase())
   );
-  for (const supporting of mentionedSupporting) {
-    try {
-      const supportingRefBase64 = await getOrGenerateCharacterReferenceBase64(supporting, params.familyId, "neutral");
-      references.push({ label: `a reference image of ${supporting.name}`, base64: supportingRefBase64 });
-    } catch (refErr) {
+  // Parallelized deliberately, unlike the per-page illustration loop
+  // (which stays sequential for OpenAI rate-limit reasons) — a typical
+  // story has a small, bounded number of distinct supporting
+  // characters (1-3, not dozens), so running their reference
+  // generations concurrently meaningfully cuts real total time without
+  // the same rate-limit risk that firing off many page illustrations
+  // at once would carry. This is a real fix for actual execution time,
+  // not just a bigger timeout budget to hide behind.
+  const supportingRefResults = await Promise.allSettled(
+    mentionedSupporting.map((supporting) => getOrGenerateCharacterReferenceBase64(supporting, params.familyId, "neutral"))
+  );
+  supportingRefResults.forEach((result, i) => {
+    const supporting = mentionedSupporting[i]!;
+    if (result.status === "fulfilled") {
+      references.push({ label: `a reference image of ${supporting.name}`, base64: result.value });
+    } else {
       // A failed supporting-character reference shouldn't block the
       // whole page — it just means that one character isn't anchored
       // to a consistent look on this particular page, same drift risk
       // as before this feature existed, not a new failure mode.
-      console.error(`Couldn't generate a reference for supporting character ${supporting.name}:`, refErr);
+      console.error(`Couldn't generate a reference for supporting character ${supporting.name}:`, result.reason);
     }
-  }
+  });
 
   const provider = getImageProvider();
   const result = await provider.generateImage({

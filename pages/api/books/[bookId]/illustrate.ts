@@ -15,13 +15,24 @@
 // real wall-clock time across several pages, more than Vercel's
 // standard 60s ceiling allows.
 export const config = {
-  maxDuration: 280,
+  // Raised from 280 — the supporting-character consistency feature
+  // added real extra time on top of the per-page illustration calls:
+  // each distinct supporting character needs one reference-image
+  // generation (cached after that, not repeated per page they appear
+  // on), but for a longer book with several of them, that extra time
+  // could now push a run right up against what used to be a safely
+  // generous budget. 300 is Vercel's standard ceiling without Fluid
+  // Compute enabled — if a run still times out at this limit, the next
+  // step is restructuring this into a real background job rather than
+  // one long-blocking request, not just raising the number further.
+  maxDuration: 300,
 };
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
 import { getOrCreateChildCharacterBible, getOrGenerateCharacterReferenceBase64, generateBookCover, illustratePage } from "@/lib/illustration";
+import { isAncillaryPage } from "@/lib/ancillaryPages";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -120,11 +131,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const referenceBase64 = await getOrGenerateCharacterReferenceBase64(characterBible, auth.familyId, "neutral");
 
     const results: { pageId: string; ok: boolean; error?: string }[] = [];
+    // Ancillary pages (the auto-appended questions page and closing
+    // page — see lib/ancillaryPages.js's own comment) are excluded
+    // entirely, not just from the count: they were never meant to be
+    // illustrated like a story scene, and illustrating them would waste
+    // real generation cost on pages that don't need it. This is also
+    // the actual fix for a real reported bug — an author who wrote an
+    // 8-page story saw "Page 5 of 10" in the progress modal, because
+    // the book's 10 real Page rows included the 2 ancillary ones on
+    // top of the 8 story pages the author actually thinks of as "the
+    // book."
+    const illustrablePages = book.pages.filter((p: any) => !isAncillaryPage(p.text || ""));
     // Sequential, not concurrent — the old pipeline's own hard-learned
     // lesson (see generate-illustrations.js's CONCURRENCY constant):
     // several image generations fired together trips OpenAI's rate
     // limit on anything but a high account tier.
-    for (const page of book.pages) {
+    for (const page of illustrablePages) {
       if (!page.text) {
         results.push({ pageId: page.id, ok: false, error: "Page has no text." });
         continue;
@@ -149,7 +171,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // actually reads while this request is still running.
       await prisma.generationJob.update({
         where: { id: job.id },
-        data: { resultJson: { completed: results.length, total: book.pages.length, results } },
+        data: { resultJson: { completed: results.length, total: illustrablePages.length, results } },
       });
     }
 

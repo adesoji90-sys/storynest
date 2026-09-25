@@ -7,7 +7,11 @@
 // money), reached by an admin illustrating shared library content
 // instead of a parent illustrating their own family's book.
 export const config = {
-  maxDuration: 280,
+  // Same reasoning as the family-scoped illustrate route's matching
+  // comment — raised from 280 to Vercel's standard 300s ceiling given
+  // the extra time the supporting-character reference generation adds
+  // for books with several of them.
+  maxDuration: 300,
 };
 
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -19,6 +23,7 @@ import {
   generateBookCover,
   illustratePage,
 } from "@/lib/illustration";
+import { isAncillaryPage } from "@/lib/ancillaryPages";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -61,7 +66,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const referenceBase64 = await getOrGenerateCharacterReferenceBase64(characterBible, null, "neutral");
 
     const results: { pageId: string; ok: boolean; error?: string }[] = [];
-    for (const page of book.pages) {
+    // Excludes the auto-appended closing page ("The End 🎉...", see
+    // admin/books/index.ts's pagesWithClosing) the same way the family-
+    // scoped illustrate route now does — illustrating a picture of that
+    // text block doesn't make sense, and it was needlessly costing real
+    // generation spend on a page that was never meant to have one.
+    const illustrablePages = book.pages.filter((p: any) => !isAncillaryPage(p.text || ""));
+    for (const page of illustrablePages) {
       if (page.illustrationAssetId) {
         results.push({ pageId: page.id, ok: true });
         continue;

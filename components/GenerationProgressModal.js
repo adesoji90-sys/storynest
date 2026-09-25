@@ -28,14 +28,44 @@ const FACTS = [
 // "not working" even when it was genuinely still running. progress
 // (from a live poll of /api/books/[bookId]/generation-status) is what
 // makes this show something that actually moves.
+const FACT_INTERVAL_MS = 5000;
+// Half the interval — the fade-out finishes and the text swaps at this
+// point, then fades back in for the remainder. A real reported
+// complaint: the previous version swapped facts instantly with no
+// transition at all, which reads as a jump-cut even though the actual
+// 5-second duration was already correct — the abruptness made it feel
+// like the text was rushing by, not the timing itself.
+const FADE_MS = 400;
+
 export default function GenerationProgressModal({ open, label, progress }) {
   const [messageIndex, setMessageIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setModalVisible(false);
+      return;
+    }
     setMessageIndex(Math.floor(Math.random() * FACTS.length));
-    const id = setInterval(() => setMessageIndex((i) => (i + 1) % FACTS.length), 5000);
-    return () => clearInterval(id);
+    setVisible(true);
+    // Entrance animation for the modal itself — a frame after mount, not
+    // on the same tick, so the CSS transition actually has a starting
+    // state to animate from rather than snapping straight to visible.
+    const enter = setTimeout(() => setModalVisible(true), 20);
+
+    const id = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setMessageIndex((i) => (i + 1) % FACTS.length);
+        setVisible(true);
+      }, FADE_MS);
+    }, FACT_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(enter);
+      clearInterval(id);
+    };
   }, [open]);
 
   if (!open) return null;
@@ -44,7 +74,11 @@ export default function GenerationProgressModal({ open, label, progress }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo_night/70 p-6 backdrop-blur-sm">
-      <div className="w-full max-w-sm overflow-hidden rounded-cloth bg-surface shadow-2xl">
+      <div
+        className={`w-full max-w-sm overflow-hidden rounded-cloth bg-surface shadow-2xl transition-all duration-300 ${
+          modalVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-95 opacity-0"
+        }`}
+      >
         <div className="cloth-trim" />
         <div className="p-8">
           <h2 className="text-center font-display text-2xl text-indigo_night">{label}</h2>
@@ -65,7 +99,14 @@ export default function GenerationProgressModal({ open, label, progress }) {
             <p className="mt-1 text-center font-body text-xs text-charcoal/50">Starting…</p>
           )}
 
-          <p className="mt-6 text-center font-body text-sm text-charcoal/60">{FACTS[messageIndex]}</p>
+          <p
+            className={`mt-6 text-center font-body text-base leading-relaxed text-charcoal/70 transition-opacity ${
+              visible ? "opacity-100" : "opacity-0"
+            }`}
+            style={{ transitionDuration: `${FADE_MS}ms` }}
+          >
+            {FACTS[messageIndex]}
+          </p>
         </div>
       </div>
     </div>
