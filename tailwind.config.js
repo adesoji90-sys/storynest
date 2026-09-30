@@ -11,26 +11,17 @@ module.exports = {
   ],
   theme: {
     extend: {
-      // Kente Bright theme, chosen from four proposed directions. Token
-      // NAMES kept identical to the previous palette deliberately — every
-      // page across the whole app already references these names
-      // (bg-indigo_night, text-coral_ember, etc.), so swapping the hex
-      // values here is what makes the new palette apply everywhere at
-      // once, without needing to touch dozens of individual files. Each
-      // new value keeps the same SEMANTIC role the old one played (dark
-      // accent, primary CTA, secondary accent, background, success/green,
-      // main text) — just a different actual color for that role.
-      //
-      // Now defined via CSS variables (see styles/globals.css) instead of
-      // fixed hex — this is what makes dark mode possible at all: the
-      // variable's actual value flips between :root and .dark in that
-      // file, and every existing bg-indigo_night / text-charcoal / etc.
-      // across the whole app picks up the new value automatically the
-      // moment the .dark class is toggled on <html>, without needing to
-      // add a dark: variant to each individual usage. The
-      // rgb(var(...) / <alpha-value>) form is Tailwind's own documented
-      // pattern for CSS-variable colors that still support opacity
-      // modifiers like bg-charcoal/50, which this app uses constantly.
+      // "Plum & Amber" palette — replaces Kente Bright, chosen after a
+      // standalone preview. Token NAMES kept identical deliberately —
+      // every page across the whole app already references these names
+      // (bg-indigo_night, text-coral_ember, etc.), so swapping the
+      // actual color VALUES (in styles/globals.css's CSS variables,
+      // which these now reference) is what makes a new palette apply
+      // everywhere at once, without needing to touch dozens of
+      // individual files. Each token keeps the same semantic role it
+      // always has: indigo_night = primary/dark accent, marigold = main
+      // accent, coral_ember = interactive/CTA, ivory_cloth = background,
+      // leaf = growth/educational green, charcoal = main text.
       colors: {
         indigo_night: "rgb(var(--color-indigo-night) / <alpha-value>)",
         marigold: "rgb(var(--color-marigold) / <alpha-value>)",

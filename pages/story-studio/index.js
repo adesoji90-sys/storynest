@@ -239,7 +239,7 @@ export default function StoryStudio() {
         });
       }
       finalPages.push({
-        text: "The End 🎉\n\nWant more stories like this one? There's a whole world of adventures waiting in your Derek library!",
+        text: "The End 🎉\n\nWant more stories like this one? There's a whole world of adventures waiting in your Evoke library!",
       });
 
       const res = await fetch(`/api/story-studio/${storyId}/approve`, {
@@ -283,19 +283,48 @@ export default function StoryStudio() {
     setIllustrateError("");
     setIllustrating(true);
     setIllustrateProgress(null);
-    const stopPolling = startProgressPolling("IMAGE_GENERATION", setIllustrateProgress);
     try {
-      const res = await fetch(`/api/books/${publishedBookId}/illustrate`, {
+      // Two-step now, not one long-blocking request: /illustrate does
+      // fast setup only and hands back which pages need doing, then
+      // this loop calls /illustrate-page once per page itself — each
+      // of those calls is short enough to never time out regardless of
+      // how long the book is, which a single request covering the
+      // whole book could no longer guarantee (300s still wasn't enough
+      // for a longer book with several supporting characters). Driving
+      // the loop here also means progress is known directly from each
+      // response, no separate polling needed anymore.
+      const setupRes = await fetch(`/api/books/${publishedBookId}/illustrate`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't illustrate the book.");
+      const setupData = await setupRes.json();
+      if (!setupRes.ok) throw new Error(setupData.error || "Couldn't start illustrating the book.");
+
+      const { jobId, pageIds } = setupData;
+      let completedCount = 0;
+      const failures = [];
+      // Sequential on purpose — matches the same rate-limit caution the
+      // old single-request loop used, just driven from the client now
+      // instead of from inside one long server request.
+      for (const pageId of pageIds) {
+        const pageRes = await fetch(`/api/books/${publishedBookId}/illustrate-page`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ pageId, jobId }),
+        });
+        const pageData = await pageRes.json();
+        completedCount += 1;
+        if (!pageRes.ok) failures.push(pageId);
+        setIllustrateProgress({ completed: completedCount, total: pageIds.length });
+      }
+
+      if (failures.length === pageIds.length && pageIds.length > 0) {
+        throw new Error("Couldn't illustrate any pages — try again.");
+      }
       setIllustrateDone(true);
     } catch (err) {
       setIllustrateError(err.message);
     } finally {
-      stopPolling();
       setIllustrating(false);
     }
   }
@@ -347,7 +376,7 @@ export default function StoryStudio() {
   return (
     <>
       <Head>
-        <title>Story Studio — Derek</title>
+        <title>Story Studio — Evoke</title>
       </Head>
       <main className="min-h-screen bg-ivory_cloth text-charcoal">
         <AppHeader />

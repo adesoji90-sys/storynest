@@ -1,28 +1,21 @@
 // POST /api/admin/books/[id]/illustrate
 //
-// The admin-side counterpart to /api/books/[bookId]/illustrate — same
-// underlying mechanism (a generic character bible instead of a
-// child-derived one, the same per-page pose selection and consistency
-// approach, the same manual-not-automatic trigger since it costs real
-// money), reached by an admin illustrating shared library content
-// instead of a parent illustrating their own family's book.
+// RESTRUCTURED the same way as the family-scoped illustrate route (see
+// that file's own comment for the full reasoning) — this no longer
+// illustrates every page itself in one long-blocking request, which is
+// exactly what a longer curated book with several pages could time out
+// on even at a generous maxDuration. Now it just validates the book and
+// hands back which page ids still need illustrating; the real work
+// happens in illustrate-page.ts, called once per page by the admin
+// panel's own client-side loop.
 export const config = {
-  // Same reasoning as the family-scoped illustrate route's matching
-  // comment — raised from 280 to Vercel's standard 300s ceiling given
-  // the extra time the supporting-character reference generation adds
-  // for books with several of them.
-  maxDuration: 300,
+  maxDuration: 60,
 };
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authAdmin";
-import {
-  getOrCreateGenericBookCharacterBible,
-  getOrGenerateCharacterReferenceBase64,
-  generateBookCover,
-  illustratePage,
-} from "@/lib/illustration";
+import { getOrCreateGenericBookCharacterBible, getOrGenerateCharacterReferenceBase64 } from "@/lib/illustration";
 import { isAncillaryPage } from "@/lib/ancillaryPages";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -51,67 +44,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "This book has no pages yet." });
   }
 
-  // No GenerationJob for admin illustration — GenerationJob.familyId is
-  // required (unlike AIUsageRecord, which was just made nullable for
-  // exactly this admin case), and an admin operation genuinely has no
-  // family to attribute one to. Making up a value (e.g. picking any
-  // family's id) would write actively misleading data, worse than not
-  // tracking at all — this route's own response (the results array
-  // below) is the only record of what happened for now, same asymmetry
-  // as everywhere else admin content differs from family content in
-  // this codebase.
-
   try {
     const characterBible = await getOrCreateGenericBookCharacterBible(book.id, book.title, book.category);
-    const referenceBase64 = await getOrGenerateCharacterReferenceBase64(characterBible, null, "neutral");
+    await getOrGenerateCharacterReferenceBase64(characterBible, null, "neutral");
 
-    const results: { pageId: string; ok: boolean; error?: string }[] = [];
-    // Excludes the auto-appended closing page ("The End 🎉...", see
-    // admin/books/index.ts's pagesWithClosing) the same way the family-
-    // scoped illustrate route now does — illustrating a picture of that
-    // text block doesn't make sense, and it was needlessly costing real
-    // generation spend on a page that was never meant to have one.
-    const illustrablePages = book.pages.filter((p: any) => !isAncillaryPage(p.text || ""));
-    for (const page of illustrablePages) {
-      if (page.illustrationAssetId) {
-        results.push({ pageId: page.id, ok: true });
-        continue;
-      }
-      if (!page.text) {
-        results.push({ pageId: page.id, ok: false, error: "Page has no text." });
-        continue;
-      }
-      try {
-        await illustratePage({
-          pageId: page.id,
-          pageText: page.text,
-          characterBible,
-          familyId: null,
-          userId: auth.userId,
-          bookId: book.id,
-        });
-        results.push({ pageId: page.id, ok: true });
-      } catch (pageErr) {
-        console.error(`Admin illustration failed for page ${page.id}:`, pageErr);
-        results.push({ pageId: page.id, ok: false, error: (pageErr as Error).message });
-      }
-    }
+    // No GenerationJob here — same documented reason as before
+    // (familyId is required on that table and an admin operation has
+    // none). Progress across calls is tracked by the database itself:
+    // a page already carrying illustrationAssetId is simply skipped, so
+    // there's nothing separate to persist just to know what's left.
+    const pendingPages = book.pages.filter((p: any) => !isAncillaryPage(p.text || "") && p.text && !p.illustrationAssetId);
 
-    // Cover generated LAST, after every page — see the family-scoped
-    // illustrate route's own comment for the full reasoning (anchored
-    // to the same reference image, sequenced after pages actually run).
-    await generateBookCover({
-      bookId: book.id,
-      title: book.title,
-      characterBible,
-      referenceBase64,
-      familyId: null,
-      userId: auth.userId,
-    });
-
-    return res.status(200).json({ results, failedCount: results.filter((r) => !r.ok).length });
+    return res.status(200).json({ pageIds: pendingPages.map((p: any) => p.id) });
   } catch (err) {
-    console.error("admin illustrate error:", err);
+    console.error("admin illustrate setup error:", err);
     return res.status(500).json({ error: (err as Error).message || "Unexpected server error." });
   }
 }

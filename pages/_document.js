@@ -14,7 +14,7 @@ export default function Document() {
           href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <meta name="theme-color" content="#4A1D6E" />
+        <meta name="theme-color" content="#4A2545" />
       </Head>
       <body>
         {/* Runs synchronously, before React hydrates or the page paints —

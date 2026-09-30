@@ -26,9 +26,9 @@ const PROMPT = `A warm, painterly children's-book illustration of a mother and
 father sitting on either side of their young child in bed at night,
 reading an open storybook together. Cozy bedside lamp light, a starry
 night sky visible, warm and tender family moment. Rich warm color
-palette: deep Kente purple (#4A1D6E), bright coral-red accents
-(#E63946), vivid Kente gold tones (#F5B700), warm cream highlights
-(#FFF8ED), and rich emerald green (#0B6E4F). Storybook illustration style —
+palette: deep plum (#4A2545), warm coral accents
+(#E8674F), rich amber tones (#D9932A), cream highlights
+(#FDF6EC), and deep forest green (#2D6A4F). Storybook illustration style —
 warm, inviting, not photorealistic. Landscape orientation, wide
 composition suitable for a website hero image, no text or lettering
 anywhere in the image.`;

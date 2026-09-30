@@ -7,19 +7,25 @@
      Tailwind's documented format for CSS-variable-based colors that still
      support opacity modifiers like bg-charcoal/50, which this app uses
      extensively. Each token keeps the same semantic role in both modes
-     (dark accent, primary CTA, secondary accent, background, success
-     green, main text, raised surface) — only the actual color per role
-     changes between :root (light) and .dark (dark) below.
-     surface is NEW: previously every card/form used a hardcoded bg-white,
-     which would stay a jarring bright box even after the rest of the page
-     went dark. Card/Button-adjacent shared components now use bg-surface
-     instead, so it can flip to a proper dark panel too. */
-  --color-indigo-night: 74 29 110;   /* #4A1D6E */
-  --color-marigold: 245 183 0;       /* #F5B700 */
-  --color-coral-ember: 230 57 70;    /* #E63946 */
-  --color-ivory-cloth: 255 248 237;  /* #FFF8ED */
-  --color-leaf: 11 110 79;           /* #0B6E4F */
-  --color-charcoal: 43 27 61;        /* #2B1B3D */
+     (primary/dark accent, main accent, interactive/CTA, background,
+     growth/educational green, main text, raised surface) — only the
+     actual color per role changes between :root (light) and .dark
+     (dark) below.
+     "Plum & Amber" palette — chosen after a standalone preview
+     (new-palette-plum-amber.html), replacing Kente Bright. Same six
+     token names as before deliberately: every page already references
+     them (bg-indigo_night, text-coral_ember, etc.), so swapping the
+     values here is what makes the new palette apply everywhere at once
+     without touching individual files.
+     surface stays white in light mode — the user's five named roles
+     didn't include a card/surface color, and white continues to work
+     fine against the new cream background regardless of accent palette. */
+  --color-indigo-night: 74 37 69;    /* #4A2545 — Deep Plum (Primary) */
+  --color-marigold: 217 147 42;      /* #D9932A — Amber (Main accent) */
+  --color-coral-ember: 232 103 79;   /* #E8674F — Coral (Interactive/CTA) */
+  --color-ivory-cloth: 253 246 236;  /* #FDF6EC — Cream (Background) */
+  --color-leaf: 45 106 79;           /* #2D6A4F — Forest (Growth/educational) */
+  --color-charcoal: 43 27 42;        /* #2B1B2A — plum-tinted near-black, paired with the new palette rather than the old purple-toned text color */
   --color-surface: 255 255 255;      /* white */
 }
 
@@ -32,12 +38,12 @@
      legible against a dark background rather than desaturating into
      mud, which is the most common way a "dark mode" ends up looking
      worse than the light one it's based on. */
-  --color-indigo-night: 93 42 133;   /* #5D2A85 — brightened slightly for contrast against an even-darker page background */
-  --color-marigold: 255 198 26;      /* #FFC61A — brightened, gold pops well on dark */
-  --color-coral-ember: 240 70 86;    /* #F04656 — brightened slightly */
-  --color-ivory-cloth: 26 16 37;     /* #1A1025 — deep near-black plum, was the light cream background */
-  --color-leaf: 18 143 101;          /* #128F65 — brightened for visibility on dark */
-  --color-charcoal: 243 233 216;     /* #F3E9D8 — light cream, was the dark main-text color */
+  --color-indigo-night: 93 49 89;    /* #5D3159 — Deep Plum, brightened slightly for contrast against an even-darker page background */
+  --color-marigold: 240 168 62;      /* #F0A83E — Amber, brightened, pops well on dark */
+  --color-coral-ember: 241 122 99;   /* #F17A63 — Coral, brightened slightly */
+  --color-ivory-cloth: 28 17 25;     /* #1C1119 — deep near-black plum, was the light cream background */
+  --color-leaf: 61 138 103;          /* #3D8A67 — Forest, brightened for visibility on dark */
+  --color-charcoal: 245 237 232;     /* #F5EDE8 — light cream, was the dark main-text color */
   --color-surface: 42 25 56;         /* #2A1938 — a raised dark panel, was white */
 }
 

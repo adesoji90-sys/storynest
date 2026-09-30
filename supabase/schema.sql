@@ -1,4 +1,4 @@
--- Derek — Supabase schema
+-- Evoke — Supabase schema
 -- Run this in Supabase Dashboard → SQL Editor → New query, then "Run".
 --
 -- Genuinely safe to re-run in full, start to finish, any time this file

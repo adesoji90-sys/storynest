@@ -221,12 +221,29 @@ function emptyForm() {
     setIllustratingBookId(book.id);
     setError("");
     try {
-      const res = await fetch(`/api/admin/books/${book.id}/illustrate`, {
+      // Two-step now, same reasoning as Story Studio's handleIllustrate
+      // — /illustrate does fast setup only and hands back which pages
+      // still need doing, then this loop calls /illustrate-page once
+      // per page itself, so no single request has to cover the whole
+      // book (which is exactly what could time out on a longer one).
+      const setupRes = await fetch(`/api/admin/books/${book.id}/illustrate`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't illustrate the book.");
+      const setupData = await setupRes.json();
+      if (!setupRes.ok) throw new Error(setupData.error || "Couldn't start illustrating the book.");
+
+      for (const pageId of setupData.pageIds) {
+        const pageRes = await fetch(`/api/admin/books/${book.id}/illustrate-page`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ pageId }),
+        });
+        if (!pageRes.ok) {
+          const pageData = await pageRes.json();
+          console.error(`Page ${pageId} failed:`, pageData.error);
+        }
+      }
       // Refetches the full list rather than patching local state — a
       // partial patch here previously only set illustrated:true and
       // never picked up the fresh coverUrl the illustrate step also
