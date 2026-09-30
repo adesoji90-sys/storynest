@@ -34,7 +34,7 @@ export default function ReadingModePinSetup({ accessToken, onCancel, onSuccess }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 px-6">
-      <div className="w-full max-w-xs rounded-cloth bg-white p-6 text-center shadow-lg">
+      <div className="w-full max-w-xs rounded-cloth bg-surface p-6 text-center shadow-lg">
         <h2 className="font-display text-xl">Set a Reading Mode PIN</h2>
         <p className="mt-2 font-body text-sm text-charcoal/60">
           You'll need this to exit Reading Mode once it's started — pick something you'll remember, not something
@@ -49,7 +49,7 @@ export default function ReadingModePinSetup({ accessToken, onCancel, onSuccess }
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
             placeholder="4-digit PIN"
             autoFocus
-            className="mt-4 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 text-center font-body text-lg tracking-widest"
+            className="mt-4 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 text-center font-body text-lg tracking-widest"
           />
           <input
             type="password"
@@ -58,7 +58,7 @@ export default function ReadingModePinSetup({ accessToken, onCancel, onSuccess }
             value={confirmPin}
             onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
             placeholder="Confirm PIN"
-            className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 text-center font-body text-lg tracking-widest"
+            className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 text-center font-body text-lg tracking-widest"
           />
           {error && <p className="mt-2 font-body text-sm text-coral_ember">{error}</p>}
           <div className="mt-4 flex gap-2">

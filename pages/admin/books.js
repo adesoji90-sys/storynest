@@ -389,7 +389,7 @@ function emptyForm() {
             <span className="font-body text-xs text-charcoal/40">Used the next time you click 🔊 Narrate on any book below</span>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 rounded-cloth bg-white p-6 shadow-sm">
+          <form onSubmit={handleSubmit} className="mt-8 rounded-cloth bg-surface p-6 shadow-sm">
             <h2 className="font-display text-xl">New book</h2>
 
             <p className="mt-3 font-body text-sm text-charcoal/60">How do you want to create this book?</p>
@@ -430,7 +430,7 @@ function emptyForm() {
                   onChange={(e) => setTheme(e.target.value)}
                   placeholder="e.g. a shy girl who learns to make friends at a new school"
                   rows={2}
-                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
                 <div className="mt-2 flex items-center gap-3">
                   <label className="font-body text-sm">Pages:</label>
@@ -440,7 +440,7 @@ function emptyForm() {
                     max={30}
                     value={pageCount}
                     onChange={(e) => setPageCount(e.target.value)}
-                    className="w-20 rounded-cloth border border-charcoal/15 bg-white px-2 py-1 font-body"
+                    className="w-20 rounded-cloth border border-charcoal/15 bg-surface px-2 py-1 font-body"
                   />
                   <button
                     type="button"
@@ -464,7 +464,7 @@ function emptyForm() {
             <input
               value={form.title}
               onChange={(e) => updateField("title", e.target.value)}
-              className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+              className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
             />
             <label className="mt-4 block font-body font-semibold">
               Subtitle <span className="font-normal text-charcoal/50">(optional)</span>
@@ -472,7 +472,7 @@ function emptyForm() {
             <input
               value={form.subtitle}
               onChange={(e) => updateField("subtitle", e.target.value)}
-              className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+              className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
             />
             <label className="mt-4 block font-body font-semibold">
               Description <span className="font-normal text-charcoal/50">(optional)</span>
@@ -481,7 +481,7 @@ function emptyForm() {
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+              className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
             />
 
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -491,7 +491,7 @@ function emptyForm() {
                   type="number"
                   value={form.ageRangeMin}
                   onChange={(e) => updateField("ageRangeMin", e.target.value)}
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                 />
               </div>
               <div>
@@ -500,7 +500,7 @@ function emptyForm() {
                   type="number"
                   value={form.ageRangeMax}
                   onChange={(e) => updateField("ageRangeMax", e.target.value)}
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                 />
               </div>
               <div className="col-span-2">
@@ -508,7 +508,7 @@ function emptyForm() {
                 <select
                   value={form.readingLevel}
                   onChange={(e) => updateField("readingLevel", e.target.value)}
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                 >
                   <option value="">Not set</option>
                   {READING_LEVELS.map((l) => (
@@ -527,7 +527,7 @@ function emptyForm() {
                   value={form.category}
                   onChange={(e) => updateField("category", e.target.value)}
                   placeholder="e.g. Bedtime, Adventure"
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                 />
               </div>
               <div>
@@ -538,7 +538,7 @@ function emptyForm() {
                   value={form.lesson}
                   onChange={(e) => updateField("lesson", e.target.value)}
                   placeholder="e.g. Kindness"
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                 />
               </div>
               <div>
@@ -548,7 +548,7 @@ function emptyForm() {
                 <select
                   value={form.characterGender}
                   onChange={(e) => updateField("characterGender", e.target.value)}
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                 >
                   <option value="unspecified">Unspecified</option>
                   <option value="girl">Girl</option>
@@ -565,7 +565,7 @@ function emptyForm() {
                   onChange={(e) => updatePage(i, e.target.value)}
                   placeholder={`Page ${i + 1} text`}
                   rows={2}
-                  className="w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
                 {form.pages.length > 1 && (
                   <button
@@ -607,7 +607,7 @@ function emptyForm() {
                   </h3>
                   <div className="mt-3 space-y-3">
                     {categoryBooks.map((book) => (
-                      <div key={book.id} className="flex items-center justify-between rounded-cloth bg-white p-4 shadow-sm">
+                      <div key={book.id} className="flex items-center justify-between rounded-cloth bg-surface p-4 shadow-sm">
                         <div className="flex items-center gap-4">
                           <BookCover coverUrl={book.coverUrl} title={book.title} className="w-16 shrink-0" />
                           <div>

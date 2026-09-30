@@ -105,7 +105,7 @@ export default function ReadingMode() {
                 <Link
                   key={a.id}
                   href={`/read/${a.book.id}?childId=${childId}`}
-                  className="flex flex-col items-center rounded-cloth bg-white p-6 text-center shadow-sm transition hover:shadow-md"
+                  className="flex flex-col items-center rounded-cloth bg-surface p-6 text-center shadow-sm transition hover:shadow-md"
                 >
                   <BookCover coverUrl={a.book.coverUrl} title={a.book.title} className="w-32" />
                   <span className="mt-3 font-display text-lg">{a.book.title}</span>
@@ -130,7 +130,7 @@ export default function ReadingMode() {
             in the corner" convention for exactly this purpose. */}
         <button
           onClick={() => setShowExitGate(true)}
-          className="fixed bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-charcoal/20 bg-white px-3 py-2 font-body text-sm text-charcoal/60 shadow-sm"
+          className="fixed bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-charcoal/20 bg-surface px-3 py-2 font-body text-sm text-charcoal/60 shadow-sm"
         >
           🔒 Parent exit
         </button>

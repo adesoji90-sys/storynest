@@ -390,13 +390,13 @@ export default function StoryStudio() {
           {loading ? (
             <p className="mt-8 font-body text-charcoal/50">Loading…</p>
           ) : children.length === 0 ? (
-            <div className="mt-6 rounded-cloth bg-white p-5 shadow-sm">
+            <div className="mt-6 rounded-cloth bg-surface p-5 shadow-sm">
               <p className="font-body">
                 Add a child first — <Link href="/family" className="font-semibold text-coral_ember">go to your family</Link>.
               </p>
             </div>
           ) : !customBooksAllowed ? (
-            <div className="mt-6 rounded-cloth bg-white p-6 text-center shadow-sm">
+            <div className="mt-6 rounded-cloth bg-surface p-6 text-center shadow-sm">
               <p className="font-display text-xl">Create your own stories with the Family plan</p>
               <p className="mt-2 font-body text-charcoal/70">
                 Your current plan includes the full library — reading and listening are still fully available.
@@ -410,7 +410,7 @@ export default function StoryStudio() {
               </Link>
             </div>
           ) : phase === "done" ? (
-            <div className="mt-8 rounded-cloth bg-white p-6 text-center shadow-sm">
+            <div className="mt-8 rounded-cloth bg-surface p-6 text-center shadow-sm">
               <p className="font-display text-2xl">🎉 Published!</p>
               <p className="mt-2 font-body text-charcoal/70">"{draftTitle}" is ready to read.</p>
 
@@ -497,7 +497,7 @@ export default function StoryStudio() {
               </Link>
             </div>
           ) : phase === "reviewing" ? (
-            <div className="mt-8 rounded-cloth bg-white p-6 shadow-sm">
+            <div className="mt-8 rounded-cloth bg-surface p-6 shadow-sm">
               <h2 className="font-display text-xl">Review the story</h2>
               <p className="mt-1 font-body text-sm text-charcoal/60">
                 Edit anything you'd like, or regenerate for a different attempt — nothing is saved until you approve.
@@ -506,7 +506,7 @@ export default function StoryStudio() {
               <input
                 value={draftTitle}
                 onChange={(e) => setDraftTitle(e.target.value)}
-                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
               />
               <label className="mt-4 block font-body font-semibold">
                 Author <span className="font-normal text-charcoal/50">(optional)</span>
@@ -515,7 +515,7 @@ export default function StoryStudio() {
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder="e.g. Mummy Ada"
-                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
               />
               <h3 className="mt-6 font-body font-semibold">Pages</h3>
               {draftPages.map((text, i) => (
@@ -524,7 +524,7 @@ export default function StoryStudio() {
                   value={text}
                   onChange={(e) => updatePage(i, e.target.value)}
                   rows={2}
-                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
               ))}
 
@@ -537,7 +537,7 @@ export default function StoryStudio() {
                   value={q}
                   onChange={(e) => updateQuestion(i, e.target.value)}
                   placeholder={`Question ${i + 1}`}
-                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body text-sm"
+                  className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body text-sm"
                 />
               ))}
               <p className="mt-1 font-body text-xs text-charcoal/50">
@@ -570,13 +570,13 @@ export default function StoryStudio() {
             </div>
           ) : (
             <>
-              <form onSubmit={handleStartAndGenerate} className="mt-8 rounded-cloth bg-white p-6 shadow-sm">
+              <form onSubmit={handleStartAndGenerate} className="mt-8 rounded-cloth bg-surface p-6 shadow-sm">
                 <h2 className="font-display text-xl">New story</h2>
                 <label className="mt-4 block font-body font-semibold">Who's this story for?</label>
                 <select
                   value={childId}
                   onChange={(e) => setChildId(e.target.value)}
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 >
                   {children.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -613,7 +613,7 @@ export default function StoryStudio() {
                   <select
                     value={selectedCharacterId}
                     onChange={(e) => setSelectedCharacterId(e.target.value)}
-                    className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body text-sm"
+                    className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body text-sm"
                   >
                     <option value="">Pick a character…</option>
                     {characters.map((c) => (
@@ -630,12 +630,12 @@ export default function StoryStudio() {
                       value={charName}
                       onChange={(e) => setCharName(e.target.value)}
                       placeholder="Character name"
-                      className="w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                      className="w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                     />
                     <select
                       value={charGender}
                       onChange={(e) => setCharGender(e.target.value)}
-                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                     >
                       <option value="unspecified">Gender — unspecified</option>
                       <option value="girl">Girl</option>
@@ -646,33 +646,33 @@ export default function StoryStudio() {
                       onChange={(e) => setCharAppearance(e.target.value)}
                       placeholder="Appearance — e.g. round glasses, a gap-toothed smile, always wearing a red cap"
                       rows={2}
-                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                     />
                     <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       <input
                         value={charHair}
                         onChange={(e) => setCharHair(e.target.value)}
                         placeholder="Hair"
-                        className="rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                        className="rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                       />
                       <input
                         value={charSkinTone}
                         onChange={(e) => setCharSkinTone(e.target.value)}
                         placeholder="Skin tone"
-                        className="rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                        className="rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                       />
                       <input
                         value={charClothing}
                         onChange={(e) => setCharClothing(e.target.value)}
                         placeholder="Clothing"
-                        className="rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                        className="rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                       />
                     </div>
                     <input
                       value={charPersonality}
                       onChange={(e) => setCharPersonality(e.target.value)}
                       placeholder="Personality (e.g. brave, curious, gentle)"
-                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                      className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                     />
                     <p className="mt-2 font-body text-xs text-charcoal/50">
                       Saved to your family's character library — reusable in future stories too, for this or any child.
@@ -685,7 +685,7 @@ export default function StoryStudio() {
                   onChange={(e) => setTheme(e.target.value)}
                   placeholder="e.g. overcoming a fear of the dark"
                   rows={2}
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
                 <div className="mt-4 grid gap-4 sm:grid-cols-3">
                   <div>
@@ -694,7 +694,7 @@ export default function StoryStudio() {
                       value={genre}
                       onChange={(e) => setGenre(e.target.value)}
                       placeholder="e.g. Adventure"
-                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                     />
                   </div>
                   <div>
@@ -703,7 +703,7 @@ export default function StoryStudio() {
                       value={setting}
                       onChange={(e) => setSetting(e.target.value)}
                       placeholder="e.g. a village market"
-                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                     />
                   </div>
                   <div>
@@ -714,7 +714,7 @@ export default function StoryStudio() {
                       max={30}
                       value={pageCount}
                       onChange={(e) => setPageCount(e.target.value)}
-                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body"
+                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body"
                     />
                   </div>
                 </div>
@@ -725,7 +725,7 @@ export default function StoryStudio() {
                   value={lesson}
                   onChange={(e) => setLesson(e.target.value)}
                   placeholder="e.g. Sharing"
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
                 <label className="mt-4 block font-body font-semibold">
                   Anything else? <span className="font-normal text-charcoal/50">(optional)</span>
@@ -734,7 +734,7 @@ export default function StoryStudio() {
                   value={parentInstructions}
                   onChange={(e) => setParentInstructions(e.target.value)}
                   rows={2}
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
                 <button
                   type="submit"
@@ -753,7 +753,7 @@ export default function StoryStudio() {
                       <button
                         key={story.id}
                         onClick={() => handleResume(story)}
-                        className="flex w-full items-center justify-between rounded-cloth bg-white p-4 text-left shadow-sm"
+                        className="flex w-full items-center justify-between rounded-cloth bg-surface p-4 text-left shadow-sm"
                       >
                         <span className="font-body">
                           {story.versions[0]?.title || "Untitled"} — for {story.child.name}

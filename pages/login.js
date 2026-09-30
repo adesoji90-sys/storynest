@@ -156,7 +156,7 @@ export default function Login() {
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
           <Link href="/" className="mb-8 font-display text-2xl">Evoke</Link>
-          <div className="w-full max-w-sm rounded-cloth bg-white p-8 shadow-lg">
+          <div className="w-full max-w-sm rounded-cloth bg-surface p-8 shadow-lg">
           {sent ? (
             <>
               <h1 className="font-display text-2xl">Check your email</h1>
@@ -217,7 +217,7 @@ export default function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                     />
                     {error && <p className="mt-1 font-body text-sm text-coral_ember">{error}</p>}
                     <Button type="submit" disabled={sending} className="mt-6 w-full">
@@ -237,7 +237,7 @@ export default function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                     />
                     <label className="mt-4 block font-body font-semibold">Password</label>
                     <input
@@ -245,7 +245,7 @@ export default function Login() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder={action === "signup" ? "At least 8 characters" : "••••••••"}
-                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                      className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                     />
                     {action === "signup" && (
                       <>
@@ -255,7 +255,7 @@ export default function Login() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                          className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                         />
                       </>
                     )}

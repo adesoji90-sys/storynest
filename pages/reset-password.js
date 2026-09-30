@@ -55,7 +55,7 @@ export default function ResetPassword() {
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center bg-ivory_cloth px-6 text-charcoal">
         <Link href="/" className="mb-8 font-display text-2xl">Evoke</Link>
-        <div className="w-full max-w-sm rounded-cloth bg-white p-8 shadow-sm">
+        <div className="w-full max-w-sm rounded-cloth bg-surface p-8 shadow-sm">
           {done ? (
             <>
               <h1 className="font-display text-2xl">Password updated</h1>
@@ -79,7 +79,7 @@ export default function ResetPassword() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
                 <label className="mt-4 block font-body font-semibold">Confirm new password</label>
                 <input
@@ -87,7 +87,7 @@ export default function ResetPassword() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+                  className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
                 />
                 {error && <p className="mt-1 font-body text-sm text-coral_ember">{error}</p>}
                 <button

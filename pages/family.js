@@ -30,7 +30,7 @@ function LimitModal({ message, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-cloth bg-white p-6 text-center shadow-lg"
+        className="w-full max-w-sm rounded-cloth bg-surface p-6 text-center shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-display text-xl">Plan limit reached</h2>
@@ -74,13 +74,13 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-cloth bg-white p-6 shadow-sm ring-1 ring-coral_ember/20">
+    <form onSubmit={handleSubmit} className="rounded-cloth bg-surface p-6 shadow-sm ring-1 ring-coral_ember/20">
       <label className="block font-body font-semibold">Name</label>
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="e.g. Amaka"
-        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
       />
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
@@ -89,7 +89,7 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
             type="date"
             value={dateOfBirth}
             onChange={(e) => setDateOfBirth(e.target.value)}
-            className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+            className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
           />
         </div>
         <div>
@@ -97,7 +97,7 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
           <select
             value={readingLevel}
             onChange={(e) => setReadingLevel(e.target.value)}
-            className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+            className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
           >
             <option value="">Not sure yet</option>
             {READING_LEVELS.map((l) => (
@@ -113,7 +113,7 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
         value={interests}
         onChange={(e) => setInterests(e.target.value)}
         placeholder="e.g. dinosaurs, football, space"
-        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-white px-4 py-2 font-body"
+        className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
       />
       {error && <p className="mt-2 font-body text-sm text-coral_ember">{error}</p>}
       <div className="mt-5 flex gap-3">

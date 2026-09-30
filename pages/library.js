@@ -294,20 +294,20 @@ export default function Library() {
                               value={printForm.recipientName}
                               onChange={(e) => setPrintForm((f) => ({ ...f, recipientName: e.target.value }))}
                               placeholder="Recipient name"
-                              className="mt-3 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                              className="mt-3 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                             />
                             <input
                               value={printForm.recipientPhone}
                               onChange={(e) => setPrintForm((f) => ({ ...f, recipientPhone: e.target.value }))}
                               placeholder="Phone number"
-                              className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                              className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                             />
                             <textarea
                               value={printForm.deliveryAddress}
                               onChange={(e) => setPrintForm((f) => ({ ...f, deliveryAddress: e.target.value }))}
                               placeholder="Delivery address"
                               rows={2}
-                              className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-white px-3 py-2 font-body text-sm"
+                              className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-3 py-2 font-body text-sm"
                             />
                             <div className="mt-3 flex gap-3">
                               <button

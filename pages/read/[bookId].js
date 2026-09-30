@@ -194,7 +194,7 @@ export default function Reader() {
             is deliberately one continuous surface, not two cards
             sitting side by side, since that's what makes it read as an
             open book rather than just "a picture next to some text." */}
-        <div className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden rounded-cloth bg-white shadow-2xl md:mb-8 md:flex-row">
+        <div className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden rounded-cloth bg-surface shadow-2xl md:mb-8 md:flex-row">
           <div
             className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-10 -translate-x-1/2 md:block"
             style={{
