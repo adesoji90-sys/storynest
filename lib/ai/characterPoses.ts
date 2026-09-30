@@ -52,6 +52,56 @@ export const POSES: CharacterPose[] = [
     prompt: `tilting their head thoughtfully with a finger near their chin, curious expression, ${SAFE_FRAMING}`,
     keywords: ["think", "wonder", "curious", "idea", "plan", "figure", "puzzle", "mystery", "why"],
   },
+  // Added — the original six left many common children's-story
+  // scenarios (sleeping, eating, playing, dancing, sitting, hugging)
+  // with no real match at all, silently falling back to "standing
+  // calmly" regardless of what the scene actually described. A real
+  // reported case: poses not matching several scenes in a book. This
+  // doesn't fully solve mismatches on scenes no fixed pose could ever
+  // cover (a real per-scene generated pose would be the complete fix,
+  // not yet built) — but it closes the most common, predictable gaps.
+  {
+    id: "sleeping",
+    label: "Sleeping / resting",
+    prompt: `lying down peacefully asleep or resting, eyes closed, relaxed and cozy, ${SAFE_FRAMING}`,
+    keywords: ["sleep", "asleep", "bed", "nap", "dream", "yawn", "tired", "rest", "night", "pillow"],
+  },
+  {
+    id: "eating",
+    label: "Eating / mealtime",
+    prompt: `sitting and eating happily at a meal, ${SAFE_FRAMING}`,
+    keywords: ["eat", "ate", "food", "meal", "breakfast", "lunch", "dinner", "snack", "hungry", "taste", "bite"],
+  },
+  {
+    id: "playing",
+    label: "Playing",
+    prompt: `mid-play, joyfully active — running, jumping, or playing a game, ${SAFE_FRAMING}`,
+    keywords: ["play", "game", "toy", "ball", "jump", "hop", "chase", "hide", "seek", "swing"],
+  },
+  {
+    id: "dancing",
+    label: "Dancing / music",
+    prompt: `dancing joyfully or moving to music, ${SAFE_FRAMING}`,
+    keywords: ["dance", "danc", "music", "sing", "song", "drum", "rhythm", "clap"],
+  },
+  {
+    id: "sitting",
+    label: "Sitting quietly",
+    prompt: `sitting calmly, attentive and still, ${SAFE_FRAMING}`,
+    keywords: ["sit", "sat", "read", "book", "story", "listen", "watch", "class", "lesson", "school"],
+  },
+  {
+    id: "hugging",
+    label: "Hugging / affection",
+    prompt: `embracing someone warmly in a gentle hug, ${SAFE_FRAMING}`,
+    keywords: ["hug", "embrace", "cuddle", "love", "comfort", "arms around", "hold"],
+  },
+  {
+    id: "swimming",
+    label: "Swimming / water",
+    prompt: `playing in water, mid-swim or splashing joyfully, ${SAFE_FRAMING}`,
+    keywords: ["swim", "water", "splash", "pool", "river", "ocean", "sea", "bath", "wet", "rain"],
+  },
 ];
 
 export function getPose(id?: string): CharacterPose {

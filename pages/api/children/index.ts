@@ -17,6 +17,7 @@ import { requireFamily } from "@/lib/authFamily";
 
 const CreateChildSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
+  gender: z.enum(["girl", "boy", "unspecified"]).optional(),
   dateOfBirth: z.string().date().optional().nullable(),
   readingLevel: z.string().trim().max(40).optional().nullable(),
   preferredLanguage: z.string().trim().max(20).optional(),
@@ -37,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input." });
   }
-  const { name, dateOfBirth, readingLevel, preferredLanguage, interests } = parsed.data;
+  const { name, gender, dateOfBirth, readingLevel, preferredLanguage, interests } = parsed.data;
 
   try {
     // Step 11 enforcement: a family with no Entitlement row yet (e.g.
@@ -60,6 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data: {
         familyId: auth.familyId,
         name,
+        gender: gender || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         readingLevel: readingLevel || null,
         preferredLanguage: preferredLanguage || "en",

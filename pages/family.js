@@ -53,6 +53,7 @@ function LimitModal({ message, onClose }) {
 
 function ChildForm({ initial, onCancel, onSave, saving }) {
   const [name, setName] = useState(initial?.name || "");
+  const [gender, setGender] = useState(initial?.gender || "unspecified");
   const [dateOfBirth, setDateOfBirth] = useState(initial?.dateOfBirth ? initial.dateOfBirth.slice(0, 10) : "");
   const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || "");
   const [interests, setInterests] = useState((initial?.interests || []).join(", "));
@@ -64,6 +65,7 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
     setError("");
     onSave({
       name: name.trim(),
+      gender: gender !== "unspecified" ? gender : undefined,
       dateOfBirth: dateOfBirth || null,
       readingLevel: readingLevel || null,
       interests: interests
@@ -83,6 +85,20 @@ function ChildForm({ initial, onCancel, onSave, saving }) {
         className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
       />
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="block font-body font-semibold">
+            Gender <span className="font-normal text-charcoal/50">(helps illustration)</span>
+          </label>
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            className="mt-1 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body"
+          >
+            <option value="unspecified">Unspecified</option>
+            <option value="girl">Girl</option>
+            <option value="boy">Boy</option>
+          </select>
+        </div>
         <div>
           <label className="block font-body font-semibold">Date of birth</label>
           <input

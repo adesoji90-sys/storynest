@@ -96,6 +96,7 @@ export async function getOrCreateChildCharacterBible(childId: string, familyId: 
       familyId,
       name: child.name,
       age,
+      gender: child.gender || null,
       appearance: themeContext
         ? `The main character in a story about: ${themeContext}`
         : "A cheerful, friendly child with a warm smile.",

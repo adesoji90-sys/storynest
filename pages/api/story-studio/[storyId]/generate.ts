@@ -217,7 +217,16 @@ Write the full story now as JSON, following the system instructions exactly.
     // comprehension questions is a real loss but not a reason to throw
     // away an otherwise-good story; the parent can still write their
     // own in the review step.
-    const questions = Array.isArray(generated.questions) && generated.questions.length === 3 ? generated.questions : [];
+    // Was requiring EXACTLY 3 or silently dropping all of them — a real
+    // reported bug: a parent saw no questions page at all on a book,
+    // most likely because the model returned 2 or 4 rather than
+    // precisely 3 (schema got a real amount more complex once
+    // supportingCharacters was added), and this discarded the whole set
+    // rather than using what was actually usable. Now accepts 1-5 real,
+    // non-empty questions — something is better than silently nothing.
+    const questions = Array.isArray(generated.questions)
+      ? generated.questions.filter((q) => typeof q === "string" && q.trim().length > 0).slice(0, 5)
+      : [];
     // Same leniency for supportingCharacters — an empty/missing array
     // just means no illustration-time consistency references get built
     // for this story beyond the existing main-character system, not a

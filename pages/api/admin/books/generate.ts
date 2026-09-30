@@ -69,8 +69,18 @@ this shape:
   "lesson": "the story's core lesson or theme in a few words, e.g. Sharing, Courage, Kindness",
   "pages": [
     { "text": "2-4 sentence paragraph for this page" }
+  ],
+  "questions": [
+    "A simple comprehension question about the story, appropriate for the target age/reading level",
+    "A second, different comprehension question",
+    "A third, different comprehension question"
   ]
 }
+
+"questions" is shown to the child on its own page at the end of the
+book, after the story — always include exactly three real, specific
+questions about this particular story's events or characters, not
+generic prompts that could apply to any book.
 
 The number of items in "pages" should be close to ${targetPages} — a page
 or two more or fewer is fine. Invent original, appealing characters and
@@ -156,6 +166,7 @@ Write the full story now as JSON, following the system instructions exactly.
     let story: {
       title?: string;
       pages?: { text: string }[];
+      questions?: string[];
       ageRangeMin?: number;
       ageRangeMax?: number;
       readingLevel?: string;
@@ -173,9 +184,21 @@ Write the full story now as JSON, following the system instructions exactly.
       return res.status(502).json({ error: "The generated story was missing a title or pages — try again." });
     }
 
+    // Same relaxed handling as the family-scoped generate route uses —
+    // was previously an admin-side gap entirely (no questions concept
+    // at all here), added now for consistency between the two book-
+    // creation paths. Accepts whatever real, non-empty questions came
+    // back rather than requiring an exact count, same reasoning as the
+    // fix for a real reported case where an exact-count check silently
+    // discarded a usable set.
+    const questions = Array.isArray(story.questions)
+      ? story.questions.filter((q) => typeof q === "string" && q.trim().length > 0).slice(0, 5)
+      : [];
+
     return res.status(200).json({
       title: story.title,
       pages: story.pages,
+      questions,
       // Classification fields are asked for but not hard-required in the
       // response check above — a missing title/pages means there's no
       // usable story at all (a real failure), whereas a missing

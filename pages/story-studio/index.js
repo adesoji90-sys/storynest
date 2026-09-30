@@ -178,7 +178,13 @@ export default function StoryStudio() {
     if (!res.ok) throw new Error(data.error || "Couldn't generate the story.");
     setDraftTitle(data.title);
     setDraftPages(data.pages.map((p) => p.text));
-    setDraftQuestions(data.questions && data.questions.length === 3 ? data.questions : ["", "", ""]);
+    // Was requiring EXACTLY 3 or resetting to blank — the actual other
+    // half of a real reported bug (questions missing from a book): the
+    // backend was already relaxed to accept 1-5, but this still
+    // discarded anything not precisely 3 before that reached the
+    // review step at all. Falls back to a single blank editable field
+    // only when genuinely none came back, not "not exactly 3".
+    setDraftQuestions(data.questions && data.questions.length > 0 ? data.questions : [""]);
     setPhase("reviewing");
   }
 
@@ -207,7 +213,7 @@ export default function StoryStudio() {
     const pagesData = Array.isArray(latest.pagesJson) ? latest.pagesJson : latest.pagesJson.pages;
     const questionsData = Array.isArray(latest.pagesJson) ? [] : latest.pagesJson.questions;
     setDraftPages(pagesData.map((p) => p.text));
-    setDraftQuestions(questionsData && questionsData.length === 3 ? questionsData : ["", "", ""]);
+    setDraftQuestions(questionsData && questionsData.length > 0 ? questionsData : [""]);
     setPhase("reviewing");
   }
 
@@ -540,8 +546,15 @@ export default function StoryStudio() {
                   className="mt-2 w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body text-sm"
                 />
               ))}
+              <button
+                type="button"
+                onClick={() => setDraftQuestions((prev) => [...prev, ""])}
+                className="mt-2 font-body text-sm font-semibold text-coral_ember"
+              >
+                + Add another question
+              </button>
               <p className="mt-1 font-body text-xs text-charcoal/50">
-                Leave all three blank to skip this page. A final "The End" page — with a little nudge toward reading more — is always added after.
+                Leave them all blank to skip this page. A final "The End" page — with a little nudge toward reading more — is always added after.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">

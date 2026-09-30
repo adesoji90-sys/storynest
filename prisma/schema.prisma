@@ -155,6 +155,7 @@ model Child {
   id                       String    @id @default(uuid()) @db.Uuid
   familyId                 String    @map("family_id") @db.Uuid
   name                     String
+  gender                   String?   // "girl" | "boy" | "unspecified" — used to correctly inform illustration for the child's own auto-derived character (see getOrCreateChildCharacterBible), which previously had no gender signal at all and could default inconsistently regardless of the child's actual name
   dateOfBirth              DateTime? @map("date_of_birth") @db.Date
   avatarAssetId            String?   @map("avatar_asset_id") @db.Uuid
   readingLevel             String?   @map("reading_level")

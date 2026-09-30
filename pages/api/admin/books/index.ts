@@ -42,6 +42,7 @@ const CreateBookSchema = z.object({
   category: z.string().trim().max(60).optional(),
   lesson: z.string().trim().max(200).optional(),
   characterGender: z.enum(["girl", "boy", "unspecified"]).optional(),
+  questions: z.array(z.string().trim().max(300)).max(5).optional(),
   pages: z
     .array(z.object({ text: z.string().trim().min(1).max(4000) }))
     .min(1, "At least one page is required")
@@ -88,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input." });
     }
-    const { pages, characterGender, ...bookFields } = parsed.data;
+    const { pages, characterGender, questions, ...bookFields } = parsed.data;
     // Same closing-page idea as Story Studio's custom books (see that
     // flow's own version of this), but worded for curated library
     // content specifically — "create your own story" isn't relevant
@@ -99,8 +100,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // not admin/books.js's frontend, so it applies whether a book was
     // written manually or generated with AI — both paths submit
     // through this same endpoint.
+    // Same questions-page concept Story Studio already has, added here
+    // for consistency between the two book-creation paths — a real
+    // reported gap where admin books had no comprehension-questions
+    // page at all, only the closing page. Same ordering: questions
+    // immediately after the story, closing page last.
+    const filledQuestions = (questions || []).map((q) => q.trim()).filter(Boolean);
     const pagesWithClosing = [
       ...pages,
+      ...(filledQuestions.length > 0
+        ? [{ text: `Let's talk about the story!\n\n${filledQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}` }]
+        : []),
       {
         text: "The End 🎉\n\nLoved this story? There are more books waiting for you in the Evoke library!",
       },

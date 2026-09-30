@@ -51,6 +51,7 @@ function emptyForm() {
     category: "",
     lesson: "",
     characterGender: "unspecified",
+    questions: [],
     pages: [""],
   };
 }export default function AdminBooks() {
@@ -145,6 +146,7 @@ function emptyForm() {
         ...f,
         title: data.title,
         pages: data.pages.map((p) => p.text),
+        questions: data.questions && data.questions.length > 0 ? data.questions : f.questions,
         ageRangeMin: data.ageRangeMin != null ? String(data.ageRangeMin) : f.ageRangeMin,
         ageRangeMax: data.ageRangeMax != null ? String(data.ageRangeMax) : f.ageRangeMax,
         readingLevel: data.readingLevel || f.readingLevel,
@@ -180,6 +182,7 @@ function emptyForm() {
           category: form.category.trim() || undefined,
           lesson: form.lesson.trim() || undefined,
           characterGender: form.characterGender !== "unspecified" ? form.characterGender : undefined,
+          questions: form.questions.map((q) => q.trim()).filter(Boolean),
           pages: form.pages.map((text) => ({ text: text.trim() })),
         }),
       });
@@ -581,6 +584,37 @@ function emptyForm() {
             <button type="button" onClick={addPage} className="mt-2 font-body text-sm font-semibold text-coral_ember">
               + Add page
             </button>
+
+            <h3 className="mt-6 font-body font-semibold">
+              Questions about the story <span className="font-normal text-charcoal/50">(shown on their own page at the end)</span>
+            </h3>
+            {form.questions.map((q, i) => (
+              <div key={i} className="mt-2 flex gap-2">
+                <input
+                  value={q}
+                  onChange={(e) => updateField("questions", form.questions.map((x, j) => (j === i ? e.target.value : x)))}
+                  placeholder={`Question ${i + 1}`}
+                  className="w-full rounded-cloth border border-charcoal/15 bg-surface px-4 py-2 font-body text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => updateField("questions", form.questions.filter((_, j) => j !== i))}
+                  className="font-body text-sm text-charcoal/40"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => updateField("questions", [...form.questions, ""])}
+              className="mt-2 font-body text-sm font-semibold text-coral_ember"
+            >
+              + Add question
+            </button>
+            <p className="mt-1 font-body text-xs text-charcoal/50">
+              Optional — leave empty to skip this page. A closing "The End" page is always added after.
+            </p>
 
             <button
               type="submit"

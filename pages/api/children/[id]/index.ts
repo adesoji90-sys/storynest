@@ -19,6 +19,7 @@ import { requireFamily } from "@/lib/authFamily";
 
 const UpdateChildSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
+  gender: z.enum(["girl", "boy", "unspecified"]).optional(),
   dateOfBirth: z.string().date().optional().nullable(),
   readingLevel: z.string().trim().max(40).optional().nullable(),
   preferredLanguage: z.string().trim().max(20).optional(),
@@ -62,6 +63,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (result.count === 0) {
       return res.status(404).json({ error: "Child not found." });
+    }
+
+    // A real reported bug: a child's auto-derived character (see
+    // getOrCreateChildCharacterBible) is get-or-create — once made, it's
+    // reused, not regenerated, so simply fixing a child's gender here
+    // wouldn't correct a reference image already generated under the
+    // old, wrong assumption. This propagates the change to that linked
+    // character AND clears its cached reference images, so the next
+    // illustration run generates a fresh one under the corrected
+    // gender instead of silently reusing the old, mismatched art.
+    if (parsed.data.gender !== undefined) {
+      const character = await prisma.characterBible.findFirst({ where: { childId: id } });
+      if (character) {
+        await prisma.characterBible.update({ where: { id: character.id }, data: { gender: parsed.data.gender } });
+        await prisma.characterReferenceAsset.deleteMany({ where: { characterId: character.id } });
+      }
     }
 
     const child = await prisma.child.findUnique({ where: { id } });
