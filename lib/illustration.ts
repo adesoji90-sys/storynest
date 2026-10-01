@@ -381,11 +381,31 @@ export async function illustratePage(params: {
     }
   });
 
+  // Two real, reported quality issues, both addressed here:
+  // (1) outfit/appearance still drifting even with a reference image —
+  // the earlier "match exactly" instruction only fired when supporting
+  // characters were present, so a simple main-character-only scene had
+  // NO explicit consistency reinforcement at this final composition
+  // step at all (only at the separate, earlier reference-generation
+  // call). Now always included, unconditionally.
+  // (2) the main character looking "pasted" or "splashed" onto the
+  // scene rather than genuinely part of it — a real risk of edit-based
+  // reference composition specifically, where a model can copy the
+  // reference's lighting/angle wholesale instead of re-rendering the
+  // character to match the new scene's own light, shadow, and
+  // perspective. Addressed with an explicit integration instruction
+  // rather than leaving that to chance.
   const provider = getImageProvider();
   const result = await provider.generateImage({
-    prompt: `${params.pageText}\n\nIllustrate this scene as a ${style.guide}.${
-      mentionedSupporting.length ? ` Match each named character shown in the reference images to their appearance exactly — do not swap, blend, or redesign them.` : ""
-    }`,
+    prompt: `${params.pageText}
+
+Illustrate this scene as a ${style.guide}.
+
+Match ${params.characterBible.name}'s face, hairstyle, outfit, and outfit colors exactly as shown in their reference image — do not redesign, restyle, or reinterpret their appearance in any way.${
+      mentionedSupporting.length ? ` Match each other named character shown in the reference images to their own appearance exactly too — do not swap, blend, or redesign them.` : ""
+    }
+
+Render every character as a natural, integrated part of this specific scene — matching this scene's own lighting, shadows, and perspective — rather than looking like a separate image pasted or layered on top.`,
     references,
     width: 1024,
     height: 1024,

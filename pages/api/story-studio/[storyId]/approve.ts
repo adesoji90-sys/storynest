@@ -81,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     orderBy: { versionNumber: "desc" },
     select: { pagesJson: true },
   });
-  const supportingCharacters: { name: string; gender?: string; appearance: string }[] =
+  const supportingCharacters: { name: string; gender?: string; ageCategory?: string; appearance: string }[] =
     Array.isArray((latestGenerated?.pagesJson as any)?.supportingCharacters)
       ? (latestGenerated!.pagesJson as any).supportingCharacters
       : [];
@@ -122,13 +122,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // reference for each of them instead of drawing them fresh (and
       // differently) on every page they appear on.
       for (const supporting of supportingCharacters) {
+        // ageCategory folded directly into the stored appearance text
+        // rather than a separate schema column — this IS the field
+        // that actually reaches the illustration prompt either way,
+        // and a real reported bug (a story's "little brother" drawn as
+        // a full-grown adult) was specifically because no age signal
+        // reached generation at all. Prepended, not appended, so it
+        // reads first and can't get lost if appearance is ever
+        // truncated somewhere downstream.
+        const appearanceWithAge = supporting.ageCategory
+          ? `${supporting.ageCategory}. ${supporting.appearance}`
+          : supporting.appearance;
         const character = await tx.characterBible.create({
           data: {
             childId: null,
             familyId: auth.familyId,
             name: supporting.name,
             gender: supporting.gender || null,
-            appearance: supporting.appearance,
+            appearance: appearanceWithAge,
             visualStyle: "painterly",
           },
         });

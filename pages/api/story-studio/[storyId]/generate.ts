@@ -52,7 +52,7 @@ this shape:
     "A third, different comprehension question"
   ],
   "supportingCharacters": [
-    { "name": "string", "gender": "girl" | "boy" | "unspecified", "appearance": "a specific, concrete physical description — hair, clothing, any distinguishing feature" }
+    { "name": "string", "gender": "girl" | "boy" | "unspecified", "ageCategory": "young child (toddler-6)" | "child (7-12)" | "teen" | "adult" | "elder" | "animal", "appearance": "a specific, concrete physical description — hair, clothing, any distinguishing feature" }
   ]
 }
 
@@ -66,6 +66,14 @@ and expected for a story with no real supporting characters. Each
 friendly dog" but "a small brown dog with one white ear and a red
 collar" — since this exact text is what keeps that character looking
 the same across every page they appear on.
+
+"ageCategory" must match what the story text actually says about that
+character — a "little brother" or "little sister" is "young child" or
+"child", NEVER "adult", regardless of how minor their role seems. This
+field exists specifically because without an explicit age signal,
+illustration has previously drawn a child character as a full-grown
+adult — get this right, since it directly controls how that character
+is actually drawn.
 
 "questions" must contain EXACTLY three items — these are shown to the
 child (or read aloud to them) on their own page after the story ends,
@@ -203,7 +211,7 @@ Write the full story now as JSON, following the system instructions exactly.
       },
     });
 
-    let generated: { title?: string; pages?: { text: string }[]; questions?: string[]; supportingCharacters?: { name: string; gender?: string; appearance: string }[] };
+    let generated: { title?: string; pages?: { text: string }[]; questions?: string[]; supportingCharacters?: { name: string; gender?: string; ageCategory?: string; appearance: string }[] };
     try {
       generated = JSON.parse(result.rawText);
     } catch {
