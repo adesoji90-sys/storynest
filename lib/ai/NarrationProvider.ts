@@ -45,6 +45,7 @@ const WORDS_PER_MINUTE = 130;
 const ELEVEN_MODEL = "eleven_multilingual_v2";
 
 import { fetchOpenAIWithRetry } from "@/lib/openaiFetch";
+import { applyPronunciationHints } from "./nigerianNamePronunciations";
 import type { NarrationProvider, NarrationRequest, NarrationResult } from "./types";
 
 // Reused deliberately, despite the name — it's a generic
@@ -68,7 +69,12 @@ export class ElevenLabsTTSProvider implements NarrationProvider {
         "xi-api-key": process.env.ELEVENLABS_API_KEY as string,
       },
       body: JSON.stringify({
-        text: request.text,
+        // Respelled for pronunciation purposes only — see
+        // nigerianNamePronunciations.js's own comment for the full
+        // reasoning. The ORIGINAL text (what's stored and displayed to
+        // the reader) is untouched; only what's actually sent for
+        // narration gets this substitution.
+        text: applyPronunciationHints(request.text),
         model_id: ELEVEN_MODEL,
         voice_settings: { speed },
       }),
