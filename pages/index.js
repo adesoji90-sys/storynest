@@ -1,3 +1,4 @@
+import { SITE } from "../lib/siteConfig";
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
@@ -207,7 +208,12 @@ export default function Home() {
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
           <div className="text-left">
             <span className="font-display text-xl text-indigo_night">Evoke</span>
-            <p className="font-body text-xs text-leaf">By Booost</p>
+            <a
+              href={SITE.companyUrl}
+              className="font-body text-xs text-leaf hover:underline"
+            >
+              By Booost
+            </a>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -277,7 +283,12 @@ export default function Home() {
         </section>
 
         <footer className="px-6 py-10 text-center font-body text-sm text-charcoal/40">
-          Evoke
+          <p>Evoke</p>
+          <p className="mt-2">
+            <Link href="/privacy" className="underline">Privacy Policy</Link>
+            <span className="mx-3">·</span>
+            <Link href="/terms" className="underline">Terms of Service</Link>
+          </p>
         </footer>
       </main>
     </>
