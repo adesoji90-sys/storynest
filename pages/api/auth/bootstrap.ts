@@ -56,6 +56,7 @@ async function createDefaultEntitlement(tx: Prisma.TransactionClient, familyId: 
       familyId,
       maxChildren: basePlan.maxChildren,
       libraryAccess: basePlan.libraryAccess,
+      libraryBooksPerMonth: basePlan.libraryBooksPerMonth,
       customBooksAllowed: basePlan.customBooksAllowed,
       customBookCreditsTotal: basePlan.customBookCredits,
       narrationAllowed: basePlan.narrationAllowed,

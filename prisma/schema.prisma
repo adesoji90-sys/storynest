@@ -196,6 +196,9 @@ model Plan {
   description          String?
   maxChildren          Int              @map("max_children")
   libraryAccess        Boolean          @default(true) @map("library_access")
+  // How many different library books a family may open per calendar month.
+  // null = the whole library (no limit). The free plan uses 1.
+  libraryBooksPerMonth Int?             @map("library_books_per_month")
   customBooksAllowed   Boolean          @default(false) @map("custom_books_allowed")
   customBookCredits    Int?             @map("custom_book_credits") // null = no separate cap beyond other plan limits
   narrationAllowed     Boolean          @default(false) @map("narration_allowed")
@@ -267,6 +270,7 @@ model Entitlement {
   subscriptionId         String?   @unique @map("subscription_id") @db.Uuid
   maxChildren            Int       @map("max_children")
   libraryAccess          Boolean   @map("library_access")
+  libraryBooksPerMonth   Int?      @map("library_books_per_month") // null = whole library
   customBooksAllowed     Boolean   @map("custom_books_allowed")
   customBookCreditsTotal Int?      @map("custom_book_credits_total")
   customBookCreditsUsed  Int       @default(0) @map("custom_book_credits_used")

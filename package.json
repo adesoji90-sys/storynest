@@ -13,9 +13,13 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capgo/native-purchases": "^8.9.6",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@supabase/supabase-js": "^2.45.0",
+    "google-auth-library": "^11.3.1",
     "jspdf": "^2.5.1",
     "next": "14.2.35",
     "pg": "^8.13.0",
@@ -24,6 +28,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@types/node": "20.19.43",
     "@types/pg": "^8.11.10",
     "@types/react": "18.3.31",

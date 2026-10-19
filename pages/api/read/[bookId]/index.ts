@@ -18,6 +18,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { requireFamily } from "@/lib/authFamily";
+import { checkLibraryReadAllowed } from "@/lib/checkLibraryReadAllowed";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -58,6 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       where: { id: bookId },
       select: {
         id: true,
+        type: true,
         title: true,
         authorName: true,
         coverAsset: { select: { bucket: true, storageKey: true } },
@@ -75,6 +77,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     if (!book) {
       return res.status(404).json({ error: "Book not found." });
+    }
+
+    // Free plan: one library book a month. Checked here, on the server, so it
+    // cannot be skipped by typing a link.
+    const allowed = await checkLibraryReadAllowed(auth.familyId, bookId, book.type);
+    if (!allowed.ok) {
+      return res.status(allowed.status).json({ error: allowed.error, code: allowed.code, limit: allowed.limit, resetsAt: allowed.resetsAt });
     }
 
     // Cover lives in a PUBLIC bucket (see schema.sql's Step 15b comment

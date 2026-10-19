@@ -42,12 +42,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // values at creation time rather than holding a live reference —
     // see bootstrap.ts's createDefaultEntitlement) — customBooksAllowed
     // works as a proxy for "which tier" since it's the one field that
-    // reliably differs between the two current plans (Reader: always
-    // false, Family: always true). If a third plan is ever added with
+    // reliably differs between Family (true) and the others; the library
+    // limit then tells Standard (no limit) from the free plan (1 a month). If a third plan is ever added with
     // its own distinct combination, this stops being a clean proxy and
     // would need a real join instead.
     prisma.entitlement.groupBy({
-      by: ["customBooksAllowed"],
+      by: ["customBooksAllowed", "libraryBooksPerMonth"],
       _count: { id: true },
     }),
     prisma.family.count(),
@@ -104,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       count: p._count.id,
     })),
     familiesByTier: familiesByTier.map((f: any) => ({
-      tier: f.customBooksAllowed ? "Family" : "Reader",
+      tier: f.customBooksAllowed ? "Family" : f.libraryBooksPerMonth == null ? "Standard" : "Free",
       count: f._count.id,
     })),
     totalFamilies,

@@ -379,18 +379,16 @@ create policy "Users can view poses of their own custom characters"
 -- placeholder names/prices in an earlier version of this file — safe to
 -- run even if you never ran that earlier version, since the WHERE
 -- clause simply won't match anything in that case.
-update public.plans
-set code = 'reader', name = 'Reader', description = 'Library access for one child. No custom books.', price_minor_units = 150000, updated_at = now()
-where code = 'free';
-
-update public.plans
-set name = 'Family', description = 'Library access for up to 5 children, plus custom book credits. Price is a placeholder pending final business decision.', updated_at = now()
-where code = 'family';
-
+-- The plans and their prices live in
+-- prisma/migrations/1_library_limit_and_standard_plan/migration.sql:
+--   free     0 naira       read 1 library book a month, 1 child
+--   standard 3,000 naira   the whole library, 1 child
+--   family   10,000 naira  everything in Standard, custom books, up to 5 children
+-- Run that file after the tables exist. It is safe to run more than once.
 insert into public.plans (id, code, name, description, max_children, library_access, custom_books_allowed, custom_book_credits, narration_allowed, premium_images_allowed, price_minor_units, currency, billing_interval, active, updated_at)
 values
-  (uuid_generate_v4(), 'reader', 'Reader', 'Library access for one child. No custom books. Price is a placeholder pending final business decision.', 1, true, false, null, false, false, 150000, 'NGN', 'MONTHLY', true, now()),
-  (uuid_generate_v4(), 'family', 'Family', 'Library access for up to 5 children, plus custom book credits. Price is a placeholder pending final business decision.', 5, true, true, 10, false, false, 500000, 'NGN', 'MONTHLY', true, now())
+  (uuid_generate_v4(), 'reader', 'Free', 'Free trial: read 1 library book each month for one child.', 1, true, false, null, false, false, 0, 'NGN', 'MONTHLY', true, now()),
+  (uuid_generate_v4(), 'family', 'Family', 'Everything in Standard, plus custom books, characters and up to 5 children.', 5, true, true, 10, false, false, 1000000, 'NGN', 'MONTHLY', true, now())
 on conflict (code) do nothing;
 
 -- ─────────────────────────────────────────────────────────────
