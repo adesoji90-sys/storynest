@@ -15,6 +15,11 @@ import { isAndroidApp, loadPrices, buyPlan, restorePlan, manageSubscriptionUrl }
 // plan also works on the website. On the website this page explains the plans
 // and where to get them. It does not take payment here.
 
+// Set NEXT_PUBLIC_ANDROID_APP_LIVE=true in Vercel once the app is published on Google Play.
+// (These two values are public links, not secrets.)
+const APP_LIVE = process.env.NEXT_PUBLIC_ANDROID_APP_LIVE === "true";
+const PLAY_URL = "https://play.google.com/store/apps/details?id=com.booostglobal.evoke";
+
 const PLAN_INFO = {
   standard: {
     name: "Standard",
@@ -213,10 +218,27 @@ export default function Upgrade() {
           {session && android && !billingOk && (
             <p className="font-body text-sm text-charcoal/60">Purchases are not available on this device right now.</p>
           )}
-          {session && !android && !paid && (
-            <p className="font-body text-sm text-charcoal/60">
-              Plans are bought in the Evoke Android app. Once you subscribe there, your plan works here on the website too.
-            </p>
+          {!android && !paid && (
+            <div className="rounded-cloth bg-white p-4 font-body text-sm text-charcoal/70">
+              {APP_LIVE ? (
+                <>
+                  <p>Plans are bought in the Evoke Android app. Once you subscribe there, your plan works here on the website too.</p>
+                  <a
+                    href={PLAY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-block rounded-full bg-coral_ember px-5 py-2 font-semibold text-white"
+                  >
+                    Get the Evoke Android app
+                  </a>
+                </>
+              ) : (
+                <p>
+                  Plans will be bought in the Evoke Android app, which is coming soon to Google Play. Once you subscribe there, your plan
+                  works here on the website too.
+                </p>
+              )}
+            </div>
           )}
 
           {message && <p className="font-body text-sm text-leaf">{message}</p>}

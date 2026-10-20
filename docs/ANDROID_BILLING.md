@@ -103,6 +103,9 @@ Standard.
 7. Reinstall the app and press Restore my purchase: it should reconnect.
 
 ## Things to know
+- Website visitors cannot pay on the site. The Plans page tells them to get the Android app. When the app is
+  live on Google Play, set `NEXT_PUBLIC_ANDROID_APP_LIVE=true` in Vercel and redeploy: the page then shows a
+  Get the Evoke Android app button linking to the Play listing.
 - Nothing here has been run against Google yet (no account access from the build environment).
   The subscription rules are tested; the Google and database steps need the real test above.
 - Never commit the JSON key, the keystore, or any secret. The GitHub repo is public.
